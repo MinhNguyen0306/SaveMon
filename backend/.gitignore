@@ -1,0 +1,7 @@
+target/
+
+# Ignore document files
+docs/
+
+# Ignore agents files
+agents/
