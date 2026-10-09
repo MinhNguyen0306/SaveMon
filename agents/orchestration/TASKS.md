@@ -18,6 +18,9 @@
 | Shared Finance authentication integration | backend-developer + frontend-developer | BLOCKED | Backend authorization and mobile token integration implemented; mobile verification unavailable and finance DB integration remains unverified. |
 | Backend financial database verification | qa-qc | PENDING | Requires PostgreSQL availability to apply V2 and test SQL-backed endpoints/rollback. |
 | Mobile verification | qa-qc | PENDING | Requires Flutter/Dart tooling to run format, analyze, and tests. |
+| 1. QR/Bill expense scanning product specification | business-analyst | IN_PROGRESS | Approved Option A documented in `docs/PRODUCT.md` and `docs/FEATURES.md` on `dev/1/ai-qr-bill-scanning-product-spec`; awaiting task branch commit, review, and merge. |
+| QR/Bill scanning expense-note balance policy | human owner | BLOCKED | Before technical design/implementation, explicitly reconcile expense note-taking with current personal account and shared-vault balance behavior, including insufficient-balance rejection for historical expense dates. Do not bypass existing rules without approval. |
+| QR/Bill scanning technical design | solution-architect | PENDING | Depends on the product specification and resolution of the balance-policy decision. Design AI extraction, retry/idempotency, Premium entitlement, temporary image processing/no retention, personal/shared integration, and security boundaries; no implementation before design approval. |
 
 ## Verification Record (2026-10-09)
 

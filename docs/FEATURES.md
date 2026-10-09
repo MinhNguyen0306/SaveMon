@@ -641,33 +641,126 @@ Allow users to attach receipt images/files to financial transactions.
 
 # 18. AI Features
 
-## F-022 — Smart Receipt Extraction
+## F-022 — QR/Bill Expense Scanning
 
-**Priority:** FUTURE / L1
+**Priority:** POST-MVP / L1
 
 ### Purpose
 
-Extract transaction information from receipt images.
+Reduce the effort of noting a purchase expense by extracting a small set of
+fields from a supported receipt, bill, or bill-related QR code. This is an
+expense note-taking feature, not a payment feature.
 
-Flow:
+### Main Flow
+
+For a personal expense:
 
 ```text
-Receipt
+Premium user scans a supported receipt/bill/bill QR
  ↓
-OCR / AI
+System checks whether the input is a supported bill/receipt
  ↓
-Structured Draft
+AI extracts an expense draft
  ↓
-User Review
+User reviews/corrects fields and selects a personal account
  ↓
-Normal Transaction Command
+User optionally selects a broad category
  ↓
-Validation
+User confirms
  ↓
-Persistence
+Normal personal expense command validates and records the expense
 ```
 
-AI output is never directly persisted as financial truth.
+For a shared expense, the authorized active member selects the vault and
+completes all existing funding, payer/source-account, and split details
+before confirming through the normal shared expense flow.
+
+### Functional Requirements
+
+- Only purchase receipts, bills, and QR codes containing bill/receipt
+  information are supported. The scanner must not interpret arbitrary images
+  or unrelated QR codes as expenses.
+- The extracted draft may contain the paid total, transaction date, merchant
+  or description, and currency when legible.
+- The paid total is the final amount charged, after applicable tax, fees, and
+  discounts. The AI must not add tax or fees a second time.
+- The user must review and explicitly confirm the draft before a financial
+  record is created. The user can correct extracted fields.
+- Missing or ambiguous financial fields, including total, date, or currency,
+  must be surfaced for user correction. An unreadable or unsupported image/QR
+  produces no expense draft; the user can enter an expense manually.
+- The bill transaction date is used when available; scan/upload date is not a
+  substitute. The confirmed transaction date and currency determine period
+  and currency reporting under existing rules.
+- The user chooses the personal account or shared vault. For a shared
+  expense, an authorized active member supplies the vault, funding,
+  payer/source account where applicable, participants, and split amounts.
+  AI does not choose these values.
+- Category is optional. Scanning must not require a category or infer/create
+  a category. If provided, the user selects a broad existing category (for
+  example, Food, Entertainment, Travel, or Shopping); detailed child-category
+  classification is out of scope.
+- The scanner only records expenses. Refunds, credits, expense reductions,
+  payment initiation, payment verification, and payment execution are out of
+  scope.
+- Receipt images are not retained or attached to saved expenses.
+- A deliberate user rescan is a separate scan operation; if both drafts are
+  confirmed, each may create an expense, even when they represent the same
+  bill. A system retry within one scan or expense-submission operation must
+  not create duplicate drafts or financial mutations.
+- QR/Bill scanning is unavailable to Free users. Premium is offered monthly
+  or yearly and has unlimited scans while active. No free scan quota or
+  time-limited trial is included. Manual expense entry remains available to
+  Free users and after Premium expiry. A draft produced before expiry may be
+  completed through the normal expense flow.
+- The feature does not bypass existing authorization, currency, balance,
+  membership, funding, split, atomicity, or idempotency rules.
+- Recording an expense is a note in SaveMon and does not imply a real-world
+  payment was initiated or verified. Whether the current account-balance
+  availability rule should constrain recording a historical expense note is
+  unresolved and must be decided before implementation; scanning must not
+  bypass the existing rule.
+
+### Business Rules and Edge Cases
+
+```text
+currency(receipt) = currency(selected account/vault)
+sum(shared expense splits) = shared expense amount
+```
+
+Existing transaction rules remain authoritative: transaction amounts are
+positive; an itemized transaction's positive items sum exactly to the
+transaction amount; shared splits are positive and sum exactly to the expense
+amount. This scanning flow does not require itemization and does not require a
+category. AI output is untrusted input and is never directly persisted as
+financial truth.
+
+An expense with an older transaction date is reported in the period
+corresponding to that date. It is still subject to current expense validation,
+including the existing balance-availability rule; no historical-expense
+exception is defined by this feature.
+
+### Acceptance Criteria
+
+- A Premium user can scan a supported receipt/bill/bill QR and receives an
+  editable draft containing the fields that can be read.
+- An unsupported or unrelated image/QR does not create an expense draft and
+  provides a clear manual-entry fallback.
+- An unreadable or ambiguous amount/date/currency cannot silently become a
+  confirmed value; the user must correct required financial fields.
+- No expense is recorded until the user confirms it.
+- User-selected account/vault, currency, authorization, funding, split,
+  balance, and atomicity rules are enforced by normal deterministic commands.
+- A user can confirm a scan without selecting a category.
+- The user, not AI, chooses shared vault and related funding/payer/split data.
+- A deliberate rescan can produce a separate expense; retrying the same scan
+  or expense submission cannot duplicate its result.
+- Scanning does not retain or attach the original image.
+- Free users cannot scan but can enter expenses manually. Active monthly or
+  yearly Premium users can scan without a product-defined count limit.
+- Historical bills use the confirmed bill transaction date for period
+  reporting and remain subject to current expense rules.
+- Scanning cannot initiate or verify a payment or record refunds/credits.
 
 ---
 

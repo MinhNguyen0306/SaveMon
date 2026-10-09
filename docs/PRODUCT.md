@@ -52,6 +52,7 @@ Users often:
 
 - Forget to record expenses.
 - Find manual expense entry inconvenient.
+- Need a faster way to note spending from a purchase receipt, bill, or bill QR code.
 - Have transactions spread across multiple accounts.
 - Have difficulty understanding spending patterns.
 - Need to review spending by date, category, or account.
@@ -285,7 +286,7 @@ The following are explicitly outside the initial MVP:
 - Automated settlement optimization
 - Complex recurring transaction engine
 - Multi-currency financial system
-- Full OCR workflow
+- General-purpose/full OCR workflow (the bounded QR/bill expense-scanning feature is planned post-MVP under L1)
 - Natural-language transaction creation
 
 These may be introduced after the deterministic MVP is stable.
@@ -319,6 +320,59 @@ Persistence
 ```
 
 AI extracts information but does not commit financial state.
+
+#### QR/Bill Expense Scanning (POST-MVP)
+
+Premium users can scan a purchase receipt, bill, or QR code containing bill
+information to prepare an expense draft. This is an expense note-taking
+interaction; it does not initiate, verify, or execute a payment and does not
+process refunds, credits, or expense reductions.
+
+The scan is limited to supported receipts, bills, and bill-related QR codes.
+Unrelated images, unsupported bills, and unrelated QR codes must not produce
+an expense draft. The user is informed that the input is unsupported and can
+record an expense manually instead.
+
+The extraction may propose the paid total, transaction date, merchant or
+description, and currency when legible. The user reviews and can correct the
+draft before saving. The paid total means the final amount actually charged,
+including applicable tax, fees, and discounts. Ambiguous or unreadable
+financial fields must be corrected by the user before the draft can be
+submitted. The transaction date comes from the bill when available, not the
+scan/upload date. Financial summaries continue to use the confirmed
+transaction date and currency.
+
+AI does not choose a personal account or shared vault. For a personal expense,
+the user selects the account. For a shared expense, an authorized active
+member selects the vault and completes the existing funding, payer/source
+account, and split details. AI does not determine participants or split
+amounts. The user may leave category unspecified; scanning must not require a
+category or infer a detailed child category. If selected, category remains a
+broad, user-controlled classification such as Food, Entertainment, Travel,
+or Shopping.
+
+The scan creates an expense only after explicit user confirmation through the
+normal deterministic expense command. Existing authorization, currency,
+balance, shared membership/funding, split, atomicity, and idempotency rules
+remain in force. The product intent is expense note-taking rather than
+payment processing; recording a transaction does not mean SaveMon performed
+or verified a real-world payment. Whether the existing balance-availability
+rule should constrain recording historical expense notes remains an explicit
+product/architecture question and must be resolved before implementation; the
+scan feature itself does not bypass that rule.
+
+Receipt images are not retained or attached to the saved transaction. A
+deliberate second scan is a separate user action and, if confirmed, may create
+a second expense even when the bill is the same. A system retry within one
+scan or expense-submission operation must be tracked as that same operation
+and must not create a duplicate draft/financial mutation.
+
+QR/Bill scanning is Premium-only. Free users have no scan capability, but can
+continue to record expenses manually. Premium is available as monthly or
+yearly subscription and allows unlimited scans while active; no free scan
+quota or time-limited trial is included. A draft already produced may be
+completed through the ordinary expense flow if Premium access expires after
+extraction.
 
 ### L2 — AI Assistant
 
