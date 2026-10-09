@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -74,6 +75,15 @@ class GlobalExceptionHandlerTest {
                 .contains("\"traceId\":\"" + result.getResponse().getHeader("X-Trace-Id") + "\"");
     }
 
+    @Test
+    void returnsDocumentedFinancialBusinessErrorCode() throws Exception {
+        mockMvc.perform(get("/business-failure-probe"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"))
+                .andExpect(jsonPath("$.message").value("Insufficient account balance."))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
     @RestController
     static class ValidationProbeController {
 
@@ -85,6 +95,12 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/failure-probe")
         String fail() {
             throw new IllegalStateException("sensitive implementation detail");
+        }
+
+        @GetMapping("/business-failure-probe")
+        String businessFailure() {
+            throw new BusinessApiException(
+                    "INSUFFICIENT_BALANCE", "Insufficient account balance.", HttpStatus.UNPROCESSABLE_ENTITY);
         }
     }
 

@@ -259,6 +259,12 @@ Shared Finance must not directly manipulate Personal Finance internals.
 
 Communication should occur through explicit application contracts.
 
+For a Shared Finance operation that debits a personal account, Shared Finance
+invokes an application-level command/port owned by Personal Finance. The
+command participates in the same database transaction as the Shared Finance
+ledger and vault-balance changes. Shared Finance must not access Personal
+Finance repositories or persistence directly.
+
 ---
 
 # 8. AI Module

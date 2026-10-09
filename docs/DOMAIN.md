@@ -203,6 +203,8 @@ An account provides the financial context for personal transactions.
 2. Only authorized users can operate on the account.
 3. Financial state associated with the account must remain consistent.
 4. An account cannot be used as another user's personal account.
+5. In the MVP, normal operations cannot make an account balance negative.
+6. A reversal may make an account balance negative and must remain auditable.
 
 ### Lifecycle
 
@@ -349,8 +351,9 @@ Transaction
 ### Invariants
 
 - An item belongs to exactly one transaction.
-- Item amount must be positive or otherwise satisfy the defined financial representation.
-- The sum of item amounts must satisfy the transaction amount rule.
+- If transaction items exist, every item amount must be positive.
+- A transaction may have no items.
+- If items exist, their amounts must sum exactly to the transaction amount.
 
 For a fully itemized transaction:
 
@@ -358,7 +361,25 @@ For a fully itemized transaction:
 Σ item.amount = transaction.amount
 ```
 
-The exact support for partially itemized transactions is a later product/domain decision.
+Partial itemization is not supported in the MVP.
+
+## Transaction Editing and Reversal
+
+- Only an `ACTIVE` transaction may be edited.
+- Editing may change description, transaction date, or itemization only.
+- Editing cannot change amount, currency, account, owner, or transaction type.
+- Reversal creates an auditable counter-entry and marks the original transaction
+  `REVERSED` atomically.
+- A reversed transaction cannot be edited.
+- Reversal is the only MVP operation allowed to make a personal account balance
+  negative.
+
+## Currency
+
+- The MVP does not perform foreign exchange.
+- A financial operation must use the same currency as its account or vault.
+- Summaries and calendar totals must be calculated for one currency at a time;
+  amounts in different currencies must never be aggregated.
 
 ---
 
@@ -487,6 +508,10 @@ Additional roles should not be introduced without a concrete requirement.
 - A user cannot have duplicate active membership in the same vault.
 - Only valid members may participate in shared financial activities.
 - Membership status must be respected by authorization rules.
+- Only an active `OWNER` may add or remove members.
+- The last active owner cannot be removed or leave.
+- Membership history is retained; rejoining reactivates the prior membership.
+- Only active members may create contributions or shared expenses.
 
 ### Historical Rule
 
@@ -523,6 +548,12 @@ Vault
 - Amount must be positive.
 - Contribution must have a valid date.
 - Contribution must not be attributed to a member of another vault.
+- The source account belongs to the contributor and has the same currency as
+  the vault.
+- Contribution description is optional.
+- The personal-account debit and vault credit are one atomic financial
+  operation coordinated through an application-level command/port; Shared
+  Finance does not access Personal Finance repositories directly.
 
 ---
 
@@ -532,7 +563,8 @@ Vault
 
 A Shared Expense represents an expense occurring within a shared vault.
 
-A shared expense may be funded by the shared vault or associated with a member who paid on behalf of the group, depending on the final financial model.
+A shared expense is funded either by the shared vault or by an active member
+paying on behalf of the group.
 
 ### Core Information
 
@@ -554,6 +586,11 @@ Shared Expense
 - Actor must have appropriate vault permission.
 - Participants must be valid vault members.
 - Split allocations must satisfy the expense amount rule.
+- If member-funded, the authenticated caller must be the payer member.
+- If member-funded, the source account must belong to the payer and match the
+  vault currency.
+- Personal account, vault, and expense ledger changes are coordinated
+  atomically through an application-level command/port.
 
 ---
 
@@ -627,7 +664,14 @@ Allocated Expenses
 Settlements
 ```
 
-The exact formula depends on the final shared-finance accounting model.
+For the MVP:
+
+```text
+netPosition = contributed + paidOnBehalf - allocatedExpenses
+```
+
+A positive `netPosition` means the member has credit. Settlement is not
+implemented in the MVP.
 
 The MVP must establish the basic invariant:
 
@@ -712,7 +756,8 @@ and:
 every split participant ∈ valid vault members
 ```
 
-according to the applicable membership policy.
+according to the applicable membership policy. A membership later marked
+removed remains valid for historical financial records.
 
 ---
 

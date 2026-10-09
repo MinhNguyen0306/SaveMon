@@ -268,11 +268,10 @@ OTHER
 
 ### Balance invariant
 
-`current_balance` may be positive, zero, or negative depending on future account rules.
-
-The application must define whether negative balances are allowed for each account type.
-
-The MVP should not introduce overdraft-specific financial logic unless required.
+Normal MVP operations must not make `current_balance` negative. A transaction
+reversal is the sole exception and may produce a negative balance; it must be
+represented by an auditable counter-entry committed atomically with marking
+the original transaction `REVERSED`.
 
 ### Indexes
 
@@ -506,7 +505,10 @@ and:
 transaction_items.amount > 0
 ```
 
-The application must ensure item categories are valid for the transaction type.
+Transactions may have no items. If any items exist, all item amounts must be
+positive and their sum must exactly equal `transactions.amount`; partial
+itemization is not supported. The application must ensure item categories are
+valid for the transaction type.
 
 ### Indexes
 
@@ -623,6 +625,9 @@ UNIQUE(vault_id, user_id)
 combined with lifecycle handling rather than creating duplicate membership records.
 
 Historical membership must remain available when required for financial history.
+Only an active `OWNER` may add or remove members, and the last active owner
+cannot be removed or leave. Rejoining reactivates the existing membership
+record.
 
 ---
 
@@ -663,6 +668,9 @@ amount > 0
 The referenced member must belong to the referenced vault.
 
 The referenced transaction must represent the corresponding financial movement.
+The contributing source account, optional description, currency, and financial
+transaction details are derived from the linked `transactions` row. Its
+account currency must equal the vault currency.
 
 ### Atomic contribution
 
@@ -920,6 +928,11 @@ SHARED_EXPENSE_CREATED
 Audit logs are not the financial ledger.
 
 They provide operational/security traceability.
+
+For a reversal, the audit metadata must identify both the original transaction
+(`entity_id`) and the created counter-entry (`reversalTransactionId`), along
+with the optional reason when supplied. The audit row, counter-entry, and
+original `REVERSED` status update commit in the same database transaction.
 
 ---
 

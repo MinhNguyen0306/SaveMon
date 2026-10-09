@@ -23,6 +23,12 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+savemon:
+  security:
+    jwt:
+      public-key: ${SAVEMON_JWT_PUBLIC_KEY:}
+      key-id: ${SAVEMON_JWT_KEY_ID:}
+
 management:
   endpoints:
     web:

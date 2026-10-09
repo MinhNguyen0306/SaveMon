@@ -79,6 +79,7 @@ Authorization: Bearer <access-token>
 ```
 
 Access tokens are intended to be short-lived.
+For protected requests, the access token is sent using the `Bearer` scheme.
 
 The backend extracts the authenticated user identity from the token.
 
@@ -145,27 +146,54 @@ Response:
 200 OK
 ```
 
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "displayName": "Minh"
+  },
+  "accessToken": "...",
+  "expiresIn": 900
+}
+```
+
+Login returns the same response shape as registration. MVP responses do not
+include refresh-token fields.
+
 ---
 
 ## Refresh Token
+
+Refresh-token implementation is deferred in the MVP.
 
 ```http
 POST /api/v1/auth/refresh
 ```
 
-Refresh-token implementation may use Redis-backed revocation/state.
-
-The access token remains stateless.
+Until refresh is implemented, clients clear their local session after any
+`401` response. The access-token TTL remains 900 seconds.
 
 ---
 
 ## Logout
 
+Logout implementation is deferred in the MVP. The server does not currently
+revoke access tokens or refresh-token state.
+
 ```http
 POST /api/v1/auth/logout
 ```
 
-The server invalidates the refresh-token/session state where applicable.
+The future refresh/logout contract must specify requests, responses, error
+codes, mobile token storage, rotation/revocation, and whether Redis-backed
+state is required. Refresh/logout implementation is a release blocker for
+real-user builds; internal development builds may defer it.
+
+If registration commits a new user but token issuance fails, the endpoint
+returns `503 TOKEN_ISSUER_UNAVAILABLE`; the user remains created and the
+client can recover by logging in. A repeated registration returns
+`409 IDENTITY_CONFLICT`.
 
 ---
 
@@ -207,6 +235,10 @@ The authenticated user is taken from the JWT.
 
 No user ID is required.
 
+`displayName` is trimmed, must not be empty, and is limited to 100
+characters. A successful update returns `200 OK` with the same profile
+response shape as `GET /api/v1/me`.
+
 ---
 
 # 6. Personal Accounts
@@ -236,7 +268,11 @@ Response:
       "balance": 2500000,
       "status": "ACTIVE"
     }
-  ]
+  ],
+  "page": 0,
+  "size": 20,
+  "totalItems": 1,
+  "totalPages": 1
 }
 ```
 
@@ -299,6 +335,11 @@ POST /api/v1/accounts/{accountId}/archive
 ```
 
 An account containing financial history should not be physically deleted.
+
+Normal financial operations that would make an account balance negative are
+rejected with `422 INSUFFICIENT_BALANCE`. Transaction reversal is the
+auditable exception and may make the balance negative. No foreign exchange
+is performed; each financial operation must use the account's currency.
 
 ---
 
@@ -488,15 +529,18 @@ Response:
 GET /api/v1/transactions
 ```
 
-Supported filters should initially include:
+Query parameters:
 
 ```text
+page (zero-based, default 0)
+size (default 20, range 1–100)
 accountId
 type
 status
 from
 to
 categoryId
+currency
 ```
 
 Example:
@@ -505,13 +549,30 @@ Example:
 GET /api/v1/transactions?accountId={id}&from=2026-10-01&to=2026-10-31
 ```
 
-Pagination is required.
+The response is paginated:
 
-Preferred initial model:
-
-```text
-page
-size
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "type": "EXPENSE",
+      "amount": 200000,
+      "currency": "VND",
+      "transactionDate": "2026-10-08T12:00:00Z",
+      "description": "Lunch",
+      "status": "ACTIVE",
+      "account": { "id": "uuid", "name": "Cash" },
+      "items": [
+        { "categoryId": "uuid", "categoryName": "Food", "amount": 200000 }
+      ]
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalItems": 42,
+  "totalPages": 3
+}
 ```
 
 Cursor pagination can be introduced later if query volume requires it.
@@ -536,7 +597,19 @@ items
 
 Changing financial amount/account should be treated as a financial correction operation rather than an unrestricted CRUD update.
 
-The backend must protect against concurrent modifications.
+Only an `ACTIVE` transaction may be edited. The amount, currency, account,
+owner, and transaction type are immutable through this endpoint. If `items`
+are provided, every item amount must be positive and their sum must equal the
+transaction amount. Omitting `items` leaves the transaction unitemized.
+Concurrent modification returns `409 TRANSACTION_CONCURRENCY_CONFLICT`.
+
+Response:
+
+```http
+200 OK
+```
+
+The response is the updated transaction detail shape documented in Section 9.
 
 ---
 
@@ -562,6 +635,9 @@ Request:
 }
 ```
 
+The request body is optional. If supplied, `reason` is an optional audit
+description.
+
 The operation:
 
 1. verifies transaction state
@@ -572,6 +648,27 @@ The operation:
 6. writes audit information
 
 All steps occur atomically.
+
+Reversal is permitted even when applying it makes the account balance
+negative. The reversal and original transaction update must be auditable and
+committed in one database transaction. A transaction already in `REVERSED`
+state returns `409 TRANSACTION_ALREADY_REVERSED`.
+
+Response:
+
+```http
+201 Created
+```
+
+```json
+{
+  "id": "uuid",
+  "originalTransactionId": "uuid",
+  "reversalTransactionId": "uuid",
+  "status": "REVERSED",
+  "reversedAt": "2026-10-08T12:15:00Z"
+}
+```
 
 ---
 
@@ -590,13 +687,20 @@ GET /api/v1/calendar
 Example:
 
 ```text
-GET /api/v1/calendar?from=2026-10-01&to=2026-10-31
+GET /api/v1/calendar?currency=VND&from=2026-10-01&to=2026-10-31
 ```
+
+`currency` is required. Calendar results contain daily summaries only; to
+inspect transaction details, use transaction history with date filters.
+`from` and `to` are optional inclusive date bounds. If neither is supplied,
+the query covers all available transaction dates; if only one is supplied,
+it bounds that side of the range.
 
 Response:
 
 ```json
 {
+  "currency": "VND",
   "days": [
     {
       "date": "2026-10-08",
@@ -623,8 +727,12 @@ GET /api/v1/summary
 Example:
 
 ```text
-GET /api/v1/summary?from=2026-10-01&to=2026-10-31
+GET /api/v1/summary?currency=VND&from=2026-10-01&to=2026-10-31
 ```
+
+`currency` is required. MVP does not convert or aggregate amounts across
+currencies. `from` and `to` are optional inclusive date bounds with the same
+behavior as the calendar query.
 
 Response:
 
@@ -683,6 +791,26 @@ GET /api/v1/vaults
 
 Only vaults where the authenticated user has valid membership should be returned.
 
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "name": "Trip Fund",
+      "currency": "VND",
+      "balance": 5000000,
+      "status": "ACTIVE"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}
+```
+
 ---
 
 ## Get Vault
@@ -713,6 +841,30 @@ Response:
 GET /api/v1/vaults/{vaultId}/members
 ```
 
+Only active members may view vault data. The response is:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "displayName": "Minh",
+      "role": "OWNER",
+      "status": "ACTIVE",
+      "joinedAt": "2026-10-08T12:00:00Z"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}
+```
+
+Query parameters are `page` (zero-based, default `0`) and `size` (default
+`20`, range `1–100`).
+
 ---
 
 ## Add Member
@@ -735,9 +887,9 @@ Authorization:
 OWNER
 ```
 
-or another explicitly authorized role in future.
-
-The API must not allow arbitrary users to insert themselves into a vault.
+Only an active `OWNER` may add a member. An existing inactive membership is
+reactivated rather than replaced, preserving membership history. A user may
+have only one active membership in a vault.
 
 ---
 
@@ -750,6 +902,8 @@ POST /api/v1/vaults/{vaultId}/members/{memberId}/remove
 Historical financial records must remain valid.
 
 Removing membership does not erase historical contributions or expenses.
+Only an active `OWNER` may remove a member. The last active owner cannot be
+removed or leave. Removed members cannot perform new vault operations.
 
 ---
 
@@ -775,9 +929,15 @@ Request:
 {
   "sourceAccountId": "uuid",
   "amount": 1000000,
+  "currency": "VND",
+  "description": "Monthly contribution",
   "contributedAt": "2026-10-08T12:00:00Z"
 }
 ```
+
+`description` is optional. The authenticated active member is the contributor;
+the caller does not provide a member identity. If omitted, `description` is
+omitted from the response.
 
 Backend validates:
 
@@ -804,6 +964,12 @@ contribution created
 transaction created
 ```
 
+The source-account currency must equal the vault currency. Contributions
+cannot make a personal account negative. All personal-account and vault
+ledger/balance changes occur atomically through the explicit Personal Finance
+application command/port; Shared Finance does not access Personal Finance
+repositories directly.
+
 ---
 
 ## List Contributions
@@ -815,9 +981,35 @@ GET /api/v1/vaults/{vaultId}/contributions
 Optional:
 
 ```text
-?memberId={id}
+?page=0&size=20
+&memberId={id}
 &from={date}
 &to={date}
+```
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "vaultId": "uuid",
+      "memberId": "uuid",
+      "sourceAccountId": "uuid",
+      "amount": 1000000,
+      "currency": "VND",
+      "description": "Monthly contribution",
+      "contributedAt": "2026-10-08T12:00:00Z",
+      "transactionId": "uuid",
+      "status": "ACTIVE"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalItems": 1,
+  "totalPages": 1
+}
 ```
 
 ---
@@ -870,7 +1062,9 @@ Invariant:
 sum(splits.amount) = expense.amount
 ```
 
-All participants must be valid vault members.
+The sum of splits must equal the expense amount; each split amount is
+positive; each member may appear once and must be an active member of the
+vault. Only an active member may create an expense.
 
 ---
 
@@ -915,6 +1109,9 @@ payerMemberId belongs to vault
 sourceAccountId belongs to payer
 ```
 
+The authenticated caller must equal `payerMemberId`. The source account
+currency must match the vault currency.
+
 The payer's account is decreased.
 
 The expense is allocated through the split records.
@@ -929,6 +1126,36 @@ The expense is allocated through the split records.
 GET /api/v1/vaults/{vaultId}/expenses/{expenseId}
 ```
 
+Returns `200` with the expense resource, including funding, payer (if
+member-funded), splits, currency, transaction ID, and status.
+
+Expense resource:
+
+```json
+{
+  "id": "uuid",
+  "vaultId": "uuid",
+  "amount": 900000,
+  "currency": "VND",
+  "description": "Dinner",
+  "expenseDate": "2026-10-08T19:00:00Z",
+  "funding": {
+    "type": "MEMBER",
+    "sourceAccountId": "uuid"
+  },
+  "paidByMemberId": "uuid",
+  "splits": [
+    { "memberId": "uuid", "amount": 450000 },
+    { "memberId": "uuid", "amount": 450000 }
+  ],
+  "transactionId": "uuid",
+  "status": "ACTIVE"
+}
+```
+
+For vault-funded expenses, `funding.type` is `VAULT` and
+`paidByMemberId` is `null`; `sourceAccountId` is omitted.
+
 ---
 
 ## List Expenses
@@ -940,10 +1167,14 @@ GET /api/v1/vaults/{vaultId}/expenses
 Optional:
 
 ```text
-?from={date}
+?page=0&size=20
+&from={date}
 &to={date}
 &memberId={memberId}
 ```
+
+Returns `200` with the expense resource shape in `items`, plus `page`,
+`size`, `totalItems`, and `totalPages`.
 
 ---
 
@@ -1022,6 +1253,7 @@ Initial mapping:
 | 409    | Conflict / concurrency / duplicate state |
 | 422    | Business validation failure              |
 | 429    | Rate limit exceeded                      |
+| 503    | Required token issuer unavailable        |
 | 500    | Unexpected server error                  |
 
 ---
@@ -1033,6 +1265,8 @@ Initial important errors:
 ```text
 AUTHENTICATION_FAILED
 ACCESS_DENIED
+IDENTITY_CONFLICT
+TOKEN_ISSUER_UNAVAILABLE
 
 ACCOUNT_NOT_FOUND
 ACCOUNT_NOT_OWNED
@@ -1170,6 +1404,11 @@ Response:
 ```
 
 For high-volume transaction history, cursor pagination may be introduced later.
+
+The initial page is zero-based. `page` defaults to `0`; `size` defaults to
+`20` and must be between `1` and `100`. Members, contributions, expenses,
+accounts, categories, and vault collections return this metadata in addition
+to `items`.
 
 Do not introduce cursor complexity before it is needed.
 
