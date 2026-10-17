@@ -26,7 +26,7 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Implemented directly on `dev`: Vietnamese mock Home/history/scanner/result views, preview state routes, adaptive scanner layout, no QR parsing or posting. Independent QA: focused preview tests 2/2 pass; targeted UI/router analyzer clean. Full scan-directory analysis/tests remain blocked by unrelated `ApiClient.sendMultipartFile` and shared-finance const-map errors; no emulator visual validation. |
+| T-037 Flutter reference UI | Initial commit `04b0070ba25fe954666972a25f0316c40663131f`; reviewer-fix delta ready for commit on `dev`: restored auth actions, gated demo finance, stateful shell/contextual routes, improved receipt framing/corners, fixed tooltip encoding. Independent QA PASS_WITH_LIMITATION: 4 focused tests and targeted analyzer pass; production shell test cannot compile due unrelated shared-finance const-map error; simulator inspection not run. |
 
 ## Blocked
 

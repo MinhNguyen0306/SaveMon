@@ -135,7 +135,7 @@ class ScanResultPage extends ConsumerWidget {
               const Text(
                   'Ch\u{1B0}a c\u{F3} d\u{1EEF} li\u{1EC7}u h\u{F3}a \u{111}\u{1A1}n.'),
               TextButton(
-                onPressed: () => context.go('/expense-scan'),
+                onPressed: () => context.pop(),
                 child: const Text('Quay l\u{1EA1}i m\u{E1}y qu\u{E9}t'),
               ),
             ],
