@@ -26,7 +26,7 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Commit `678baced6dad25e4cd283f15c0e1cd469364ed36` reviewed PASS; prior HIGH/MEDIUM findings resolved. LOW mock-history label added and asserted; independent QA confirms 2/2 history preview tests and targeted analyzer pass. Final delta commit/re-review pending; bottom-nav runtime and simulator visual check remain unavailable. |
+| T-037 Flutter reference UI | Final commit `6ac80a3c0963248b61c343c7b88aaac74a68618a` pushed to `dev`; full T-037 series and final mock-history label review PASS. Focused Home/auth/finance/session/history tests and targeted analyzer pass; bottom-nav runtime test remains blocked by pre-existing shared-finance compile error; simulator visual/accessibility review not run. Implementation is in repo; task remains PARTIAL for those verification limits. |
 
 ## Blocked
 
