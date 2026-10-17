@@ -1,6 +1,7 @@
 package com.savemon.identity.infrastructure.security;
 
 import com.savemon.identity.application.CurrentUserProvider;
+import com.savemon.identity.application.SubjectStatusQuery;
 import com.savemon.shared.interfaces.exception.SecurityErrorResponseWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +27,7 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.MappedJwtClaimSetConverter;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.security.KeyFactory;
@@ -70,7 +72,8 @@ public class JwtSecurityConfiguration {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtDecoder jwtDecoder,
-            SecurityErrorResponseWriter errorResponseWriter) throws Exception {
+            SecurityErrorResponseWriter errorResponseWriter,
+            SubjectStatusQuery subjects) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -84,7 +87,8 @@ public class JwtSecurityConfiguration {
                                 HttpMethod.POST,
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
-                                "/api/v1/auth/refresh").permitAll()
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(errorResponseWriter)
@@ -95,6 +99,8 @@ public class JwtSecurityConfiguration {
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter()))
                         .authenticationEntryPoint(errorResponseWriter)
                         .accessDeniedHandler(errorResponseWriter));
+        http.addFilterAfter(new ActiveSubjectFilter(subjects, errorResponseWriter),
+                BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 

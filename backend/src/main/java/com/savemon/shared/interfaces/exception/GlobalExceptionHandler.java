@@ -1,8 +1,11 @@
 package com.savemon.shared.interfaces.exception;
 
 import com.savemon.identity.application.AuthenticationFailedException;
+import com.savemon.identity.application.AuthServiceUnavailableException;
 import com.savemon.identity.application.IdentityConflictException;
 import com.savemon.identity.application.TokenIssuerUnavailableException;
+import com.savemon.identity.application.RefreshTokenInvalidException;
+import com.savemon.identity.application.RefreshTokenReusedException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -92,6 +95,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleTokenIssuerUnavailable(TokenIssuerUnavailableException exception) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(new ApiErrorResponse("TOKEN_ISSUER_UNAVAILABLE", "Token issuer unavailable.", null, MDC.get("traceId")));
+    }
+
+    @ExceptionHandler(AuthServiceUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthServiceUnavailable(AuthServiceUnavailableException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiErrorResponse("AUTH_SERVICE_UNAVAILABLE", "Auth service unavailable.", null,
+                        MDC.get("traceId")));
+    }
+
+    @ExceptionHandler(RefreshTokenInvalidException.class)
+    public ResponseEntity<ApiErrorResponse> handleRefreshInvalid(RefreshTokenInvalidException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiErrorResponse("REFRESH_TOKEN_INVALID", "Refresh token invalid.", null, MDC.get("traceId")));
+    }
+
+    @ExceptionHandler(RefreshTokenReusedException.class)
+    public ResponseEntity<ApiErrorResponse> handleRefreshReused(RefreshTokenReusedException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ApiErrorResponse("REFRESH_TOKEN_REUSED", "Refresh token reused.", null, MDC.get("traceId")));
     }
 
     @ExceptionHandler(Exception.class)

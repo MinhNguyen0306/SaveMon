@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -20,17 +19,17 @@ import java.util.UUID;
 public class RegisterUser {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
-    private final TokenIssuer tokenIssuer;
+    private final RefreshSessions sessions;
     private final TransactionTemplate transactionTemplate;
 
     public RegisterUser(
             UserRepository users,
             PasswordEncoder passwordEncoder,
-            TokenIssuer tokenIssuer,
+            RefreshSessions sessions,
             PlatformTransactionManager transactionManager) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
-        this.tokenIssuer = tokenIssuer;
+        this.sessions = sessions;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -65,17 +64,12 @@ public class RegisterUser {
             throw new IdentityConflictException();
         }
 
-        try {
-            TokenIssuer.IssuedAccessToken issued = tokenIssuer.issue(createdUser.id());
-            return new AuthenticationSuccessResponse(
-                    new UserSummary(createdUser.id(), createdUser.email().value(), createdUser.displayName()),
-                    issued.accessToken(),
-                    issued.expiresIn());
-        } catch (TokenIssuerUnavailableException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new TokenIssuerUnavailableException();
-        }
+        RefreshSessions.IssuedSession issued = sessions.create(createdUser.id());
+        return new AuthenticationSuccessResponse(
+                new UserSummary(createdUser.id(), createdUser.email().value(), createdUser.displayName()),
+                issued.accessToken(),
+                issued.expiresIn(),
+                issued.refreshToken());
     }
 
     private String normalizeDisplayName(String value) {
@@ -89,7 +83,8 @@ public class RegisterUser {
         return normalized;
     }
 
-    public record AuthenticationSuccessResponse(UserSummary user, String accessToken, long expiresIn) { }
+    public record AuthenticationSuccessResponse(UserSummary user, String accessToken, long expiresIn,
+            String refreshToken) { }
 
     public record UserSummary(UUID id, String email, String displayName) { }
 }

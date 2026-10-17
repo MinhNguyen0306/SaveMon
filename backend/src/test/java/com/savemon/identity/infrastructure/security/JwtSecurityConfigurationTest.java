@@ -6,8 +6,11 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.savemon.identity.application.CurrentUserProvider;
+import com.savemon.identity.application.SubjectStatusQuery;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -29,6 +32,8 @@ import java.util.Date;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,6 +58,14 @@ class JwtSecurityConfigurationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @MockBean
+    private SubjectStatusQuery subjectStatus;
+
+    @BeforeEach
+    void activeSubjectByDefault() {
+        when(subjectStatus.isActive(any(UUID.class))).thenReturn(true);
+    }
+
     @DynamicPropertySource
     static void configureJwtKey(DynamicPropertyRegistry registry) {
         registry.add("savemon.security.jwt.public-key", JwtSecurityConfigurationTest::publicKeyPem);
@@ -67,8 +80,7 @@ class JwtSecurityConfigurationTest {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/auth/logout"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
+                .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/auth/login"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
@@ -91,6 +103,17 @@ class JwtSecurityConfigurationTest {
                         .header("Authorization", "Bearer " + token(userId.toString(), KEY_ID, Instant.now().plusSeconds(900))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(userId.toString()));
+    }
+
+    @Test
+    void rejectsSuspendedOrMissingSubjectDespiteValidJwt() throws Exception {
+        UUID suspended = UUID.randomUUID();
+        UUID missing = UUID.randomUUID();
+        when(subjectStatus.isActive(suspended)).thenReturn(false);
+        when(subjectStatus.isActive(missing)).thenReturn(false);
+
+        assertUnauthorized(token(suspended.toString(), KEY_ID, Instant.now().plusSeconds(60)));
+        assertUnauthorized(token(missing.toString(), KEY_ID, Instant.now().plusSeconds(60)));
     }
 
     @Test
@@ -237,7 +260,8 @@ class JwtSecurityConfigurationTest {
         @PostMapping({
                 "/api/v1/auth/register",
                 "/api/v1/auth/login",
-                "/api/v1/auth/refresh"
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/logout"
         })
         void publicAuthRouteProbe() {
         }

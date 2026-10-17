@@ -27,12 +27,12 @@ Overall status: IN_PROGRESS
 | Current task | Status |
 |---|---|
 | T-037 Flutter reference UI | Final commit `6ac80a3c0963248b61c343c7b88aaac74a68618a` pushed to `dev`; full series and label review PASS. Focused Home/auth/finance/session/history tests and targeted analyzer pass; full bottom-nav runtime has a pre-existing compile blocker; simulator visual/accessibility QA remains outstanding. PARTIAL |
-| Current | T-017 refresh/logout backend implementation: contract is explicit in OpenAPI/API-CONTRACT/SECURITY-PRIVACY; implementation absent in current dev, and focused HTTP test compile expects the missing controller wiring. |
-| Backend compile repair | BE main-source compile passed; independent QA confirms contract-consistent exception fix. Commit/review pending; testCompile still fails on missing T-017/T-080 implementations. |
+| Current | T-017 code/security implementation passed independent QA, including authorized PostgreSQL16 refresh/auth integration tests. DevOps must commit all T-017 dependencies with compile repair into a self-contained new dev commit; no amend. |
+| Backend compile repair | Commit `2f47e25cbbca37a7dfb5e8f6d61205e88680a825` review FAIL because T-017 dependencies/AutoConfiguration registration were omitted. T-017 follow-up now includes those sources; clean-checkout build still needs verification after new commit. |
 
 ## Blocked
 
-* Backend financial DB verification: authorized PostgreSQL 16 disposable container is available. Main-source compile now passes; focused PG tests remain blocked before discovery by T-017/T-080 testCompile errors. No PG tests ran.
+* Backend financial DB verification: authorized PostgreSQL 16 disposable container is available. Clean-checkout compile is blocked by missing tracked refresh-session classes/auto-config registration; testCompile also expects T-017 and T-080 implementations. No PG tests ran.
 * Personal Finance backend foundation: V2 migration and financial JDBC workflows remain unverified pending compile repair and DB QA.
 * Shared Finance backend foundation: V2 migration and atomic cross-module workflows remain unverified pending compile repair and DB QA.
 * Mobile full-suite validation is incomplete: Flutter tools are available; targeted T-037 widget tests and analysis pass, while broader route/scanner tests are blocked by existing compile errors (`shared_finance_api.dart` const map; `expense_scan_repository.dart` missing `ApiClient.sendMultipartFile`). Simulator/accessibility verification remains unrun.

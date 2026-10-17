@@ -2,6 +2,7 @@ package com.savemon.identity.interfaces;
 
 import com.savemon.identity.application.LoginUser;
 import com.savemon.identity.application.RegisterUser;
+import com.savemon.identity.application.RefreshSessions;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -14,15 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 
 @RestController
-@ConditionalOnBean({RegisterUser.class, LoginUser.class})
+@ConditionalOnBean({RegisterUser.class, LoginUser.class, RefreshSessions.class})
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     private final RegisterUser registerUser;
     private final LoginUser loginUser;
+    private final RefreshSessions refreshSessions;
 
-    public AuthController(RegisterUser registerUser, LoginUser loginUser) {
+    public AuthController(RegisterUser registerUser, LoginUser loginUser, RefreshSessions refreshSessions) {
         this.registerUser = registerUser;
         this.loginUser = loginUser;
+        this.refreshSessions = refreshSessions;
     }
 
     @PostMapping("/register")
@@ -39,6 +42,19 @@ public class AuthController {
         LoginUser.AuthenticationSuccessResponse response = loginUser.execute(request.email(), request.password());
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshSessions.RefreshedSession> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(refreshSessions.refresh(request.refreshToken()));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest request) {
+        refreshSessions.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
+
+    public record RefreshRequest(@NotBlank String refreshToken) { }
 
     public record RegisterRequest(
             @NotBlank(message = "email must not be blank") String email,

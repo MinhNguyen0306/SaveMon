@@ -21,12 +21,12 @@ public class LoginUser {
 
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
-    private final TokenIssuer tokenIssuer;
+    private final RefreshSessions sessions;
 
-    public LoginUser(UserRepository users, PasswordEncoder passwordEncoder, TokenIssuer tokenIssuer) {
+    public LoginUser(UserRepository users, PasswordEncoder passwordEncoder, RefreshSessions sessions) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
-        this.tokenIssuer = tokenIssuer;
+        this.sessions = sessions;
     }
 
     public AuthenticationSuccessResponse execute(String email, String password) {
@@ -44,21 +44,16 @@ public class LoginUser {
             throw new AuthenticationFailedException();
         }
 
-        TokenIssuer.IssuedAccessToken issued;
-        try {
-            issued = tokenIssuer.issue(user.id());
-        } catch (TokenIssuerUnavailableException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new TokenIssuerUnavailableException();
-        }
+        RefreshSessions.IssuedSession issued = sessions.create(user.id());
         return new AuthenticationSuccessResponse(
                 new UserSummary(user.id(), user.email().value(), user.displayName()),
                 issued.accessToken(),
-                issued.expiresIn());
+                issued.expiresIn(),
+                issued.refreshToken());
     }
 
-    public record AuthenticationSuccessResponse(UserSummary user, String accessToken, long expiresIn) { }
+    public record AuthenticationSuccessResponse(UserSummary user, String accessToken, long expiresIn,
+            String refreshToken) { }
 
     public record UserSummary(UUID id, String email, String displayName) { }
 }

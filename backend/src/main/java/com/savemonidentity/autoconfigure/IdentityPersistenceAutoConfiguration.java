@@ -41,15 +41,15 @@ public class IdentityPersistenceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(RegisterUser.class)
-    RegisterUser registerUser(UserRepository users, PasswordEncoder passwords, TokenIssuer issuer,
+    RegisterUser registerUser(UserRepository users, PasswordEncoder passwords, RefreshSessions sessions,
             PlatformTransactionManager transactions) {
-        return new RegisterUser(users, passwords, issuer, transactions);
+        return new RegisterUser(users, passwords, sessions, transactions);
     }
 
     @Bean
     @ConditionalOnMissingBean(LoginUser.class)
-    LoginUser loginUser(UserRepository users, PasswordEncoder passwords, TokenIssuer issuer) {
-        return new LoginUser(users, passwords, issuer);
+    LoginUser loginUser(UserRepository users, PasswordEncoder passwords, RefreshSessions sessions) {
+        return new LoginUser(users, passwords, sessions);
     }
 
     @Bean
@@ -61,8 +61,8 @@ public class IdentityPersistenceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AuthController.class)
-    AuthController authController(RegisterUser registerUser, LoginUser loginUser) {
-        return new AuthController(registerUser, loginUser);
+    AuthController authController(RegisterUser registerUser, LoginUser loginUser, RefreshSessions sessions) {
+        return new AuthController(registerUser, loginUser, sessions);
     }
 
     @Bean
