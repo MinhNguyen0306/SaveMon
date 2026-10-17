@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +62,43 @@ void main() {
 
     expect(find.text('Vui lòng nhập mật khẩu.'), findsNothing);
     expect(find.textContaining('Chưa thể đăng nhập'), findsOneWidget);
+  });
+
+  testWidgets('signup navigation is disabled while login is submitting', (
+    tester,
+  ) async {
+    final response = Completer<http.Response>();
+    final pendingApi = ApiClient(
+      baseUri: Uri.parse('https://api.example.test/api/v1/'),
+      httpClient: MockClient((_) => response.future),
+      readSession: () async => null,
+      onUnauthorized: () async {},
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(
+            AuthRepository(pendingApi, (_) async {}),
+          ),
+        ],
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+    await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
+    await tester.enterText(find.byType(TextField).at(1), '12345678');
+    await tester.tap(find.text('Đăng nhập'));
+    await tester.pump();
+
+    final signupButton = tester.widget<TextButton>(
+      find.ancestor(
+        of: find.text('Đăng ký'),
+        matching: find.byType(TextButton),
+      ),
+    );
+    expect(signupButton.onPressed, isNull);
+
+    response.complete(http.Response('{}', 500));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('signup provides matching-password field and approved copy', (

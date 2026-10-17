@@ -130,10 +130,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               label: 'Tạo tài khoản',
               onPressed: _submitting ? null : () => context.go('/register'),
             ),
-            const AuthBottomPrompt(
+            AuthBottomPrompt(
               leading: 'Chưa có tài khoản?',
               action: 'Đăng ký',
               onTapRoute: '/register',
+              disabled: _submitting,
             ),
           ],
         ),
