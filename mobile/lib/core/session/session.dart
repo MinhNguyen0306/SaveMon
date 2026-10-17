@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class Session {
@@ -61,8 +62,28 @@ class FlutterSecureAccessTokenStorage implements AccessTokenStorage {
   final FlutterSecureStorage _storage;
 
   @override
-  Future<String?> readAccessToken() {
-    return _storage.read(key: _accessTokenKey);
+  Future<String?> readAccessToken() async {
+    try {
+      return await _storage.read(key: _accessTokenKey);
+    } on PlatformException catch (error) {
+      if (!_isUnreadableCiphertext(error)) rethrow;
+
+      // A token encrypted with an invalidated/lost Android key cannot be
+      // recovered. Remove only this auth key; never clear the app's offline DB.
+      try {
+        await _storage.delete(key: _accessTokenKey);
+      } on PlatformException {
+        // Fail closed for this launch even if cleanup itself is unavailable.
+      }
+      return null;
+    }
+  }
+
+  bool _isUnreadableCiphertext(PlatformException error) {
+    final details = '${error.message ?? ''} ${error.details ?? ''}';
+    return details.contains('IllegalBlockSizeException') ||
+        details.contains('WRONG_FINAL_BLOCK_LENGTH') ||
+        details.contains('BadPaddingException');
   }
 
   @override
