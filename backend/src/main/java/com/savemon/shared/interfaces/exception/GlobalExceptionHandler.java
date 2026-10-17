@@ -69,8 +69,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessApiException.class)
     public ResponseEntity<ApiErrorResponse> handleBusinessError(BusinessApiException exception) {
+        java.util.UUID existingTransactionId = "NARRATIVE_ITEM_ALREADY_POSTED".equals(exception.code())
+                ? exception.existingTransactionId() : null;
         return ResponseEntity.status(exception.status())
-                .body(new ApiErrorResponse(exception.code(), exception.getMessage(), null, MDC.get("traceId")));
+                .body(new ApiErrorResponse(exception.code(), exception.getMessage(), null, MDC.get("traceId"),
+                        existingTransactionId));
     }
 
     @ExceptionHandler(IdentityConflictException.class)

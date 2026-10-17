@@ -26,12 +26,15 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Final commit `6ac80a3c0963248b61c343c7b88aaac74a68618a` pushed to `dev`; full T-037 series and final mock-history label review PASS. Focused Home/auth/finance/session/history tests and targeted analyzer pass; bottom-nav runtime test remains blocked by pre-existing shared-finance compile error; simulator visual/accessibility review not run. Implementation is in repo; task remains PARTIAL for those verification limits. |
+| T-037 Flutter reference UI | Final commit `6ac80a3c0963248b61c343c7b88aaac74a68618a` pushed to `dev`; full series and label review PASS. Focused Home/auth/finance/session/history tests and targeted analyzer pass; full bottom-nav runtime has a pre-existing compile blocker; simulator visual/accessibility QA remains outstanding. PARTIAL |
+| Current | T-017 refresh/logout backend implementation: contract is explicit in OpenAPI/API-CONTRACT/SECURITY-PRIVACY; implementation absent in current dev, and focused HTTP test compile expects the missing controller wiring. |
+| Backend compile repair | BE main-source compile passed; independent QA confirms contract-consistent exception fix. Commit/review pending; testCompile still fails on missing T-017/T-080 implementations. |
 
 ## Blocked
 
-* Personal Finance backend foundation: compilation and focused tests pass, but the V2 migration and financial JDBC workflows have not been exercised against PostgreSQL in this session.
-* Shared Finance backend foundation: compilation and focused tests pass, but the V2 migration and atomic cross-module financial workflows have not been exercised against PostgreSQL in this session.
+* Backend financial DB verification: authorized PostgreSQL 16 disposable container is available. Main-source compile now passes; focused PG tests remain blocked before discovery by T-017/T-080 testCompile errors. No PG tests ran.
+* Personal Finance backend foundation: V2 migration and financial JDBC workflows remain unverified pending compile repair and DB QA.
+* Shared Finance backend foundation: V2 migration and atomic cross-module workflows remain unverified pending compile repair and DB QA.
 * Mobile full-suite validation is incomplete: Flutter tools are available; targeted T-037 widget tests and analysis pass, while broader route/scanner tests are blocked by existing compile errors (`shared_finance_api.dart` const map; `expense_scan_repository.dart` missing `ApiClient.sendMultipartFile`). Simulator/accessibility verification remains unrun.
 
 ## Open Implementation Notes
