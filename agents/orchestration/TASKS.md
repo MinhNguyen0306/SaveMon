@@ -11,13 +11,13 @@
 | Registration/Login UI | frontend-developer | BLOCKED | Implemented; tests authored, but Flutter/Dart verification unavailable. |
 | Authentication QA | qa-qc | DONE | Static contract review passed; login/registration/profile backend behavior reviewed. |
 | Personal Finance domain/API foundation | backend-developer | BLOCKED | Endpoints, persistence, reversal, history, calendar/summary implemented and focused tests pass; requires PostgreSQL migration/JDBC workflow verification. |
-| Personal Finance frontend foundation | frontend-developer | BLOCKED | Read-only accounts, transaction history/detail, summary, calendar implemented; Flutter/Dart tests/analyzer unavailable. |
+| Personal Finance frontend foundation | frontend-developer | BLOCKED | Read-only accounts, transaction history/detail, summary, calendar implemented; full verification remains outstanding. Flutter tooling is available; prior full test/analyzer results are not established. |
 | Personal Finance authentication integration | backend-developer + frontend-developer | BLOCKED | Backend authorization integrated; mobile sends stored Bearer token, but mobile verification unavailable and finance DB integration remains unverified. |
 | Shared Finance domain/API foundation | backend-developer | BLOCKED | Membership, contribution/expense, accounting, and port boundaries implemented; focused tests pass; requires PostgreSQL migration/atomic workflow verification. |
-| Shared Finance frontend foundation | frontend-developer | BLOCKED | Read-only vault/member/contribution/expense screens and pagination implemented; Flutter/Dart tests/analyzer unavailable. |
+| Shared Finance frontend foundation | frontend-developer | BLOCKED | Read-only vault/member/contribution/expense screens and pagination implemented; full verification remains outstanding. Flutter tooling is available; prior full test/analyzer results are not established. |
 | Shared Finance authentication integration | backend-developer + frontend-developer | BLOCKED | Backend authorization and mobile token integration implemented; mobile verification unavailable and finance DB integration remains unverified. |
 | Backend financial database verification | qa-qc | PENDING | Requires PostgreSQL availability to apply V2 and test SQL-backed endpoints/rollback. |
-| Mobile verification | qa-qc | PENDING | Requires Flutter/Dart tooling to run format, analyze, and tests. |
+| Mobile verification | qa-qc | PARTIAL | Flutter tooling is available; targeted T-037 tests/analyzer pass. Full route/scanner tests hit pre-existing compile errors; simulator/accessibility validation remains outstanding. |
 | T-037 Reference SaveMon Flutter UI | frontend-developer | PARTIAL | Final commit `6ac80a3c0963248b61c343c7b88aaac74a68618a` pushed; full series and mock-history label reviewed PASS. Focused Home/auth/finance/session/history tests and targeted analyzer pass. Bottom-nav runtime blocked by pre-existing shared-finance const-map error; simulator visual/accessibility QA unavailable. UI implementation completed; task retains these verification limits. |
 
 ## Verification Record (2026-10-09)

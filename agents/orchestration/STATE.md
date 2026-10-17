@@ -32,7 +32,7 @@ Overall status: IN_PROGRESS
 
 * Personal Finance backend foundation: compilation and focused tests pass, but the V2 migration and financial JDBC workflows have not been exercised against PostgreSQL in this session.
 * Shared Finance backend foundation: compilation and focused tests pass, but the V2 migration and atomic cross-module financial workflows have not been exercised against PostgreSQL in this session.
-* Registration/Login UI and Personal/Shared Finance mobile integration: implementation and tests are present, but Flutter/Dart tools are unavailable, so tests/analyzer/build could not be run.
+* Mobile full-suite validation is incomplete: Flutter tools are available; targeted T-037 widget tests and analysis pass, while broader route/scanner tests are blocked by existing compile errors (`shared_finance_api.dart` const map; `expense_scan_repository.dart` missing `ApiClient.sendMultipartFile`). Simulator/accessibility verification remains unrun.
 
 ## Open Implementation Notes
 
@@ -58,7 +58,7 @@ Overall status: IN_PROGRESS
 ## Next Actions
 
 1. Apply V2 migration and run backend financial endpoint/integration verification against PostgreSQL when the database is available.
-2. Run mobile formatting, analysis, and tests when Flutter/Dart tooling is available.
+2. Resolve existing Flutter compile errors, then rerun broader route/scanner tests and simulator/accessibility verification.
 3. Keep finance and mobile tasks blocked until their required verification succeeds.
 
 ## Rules
