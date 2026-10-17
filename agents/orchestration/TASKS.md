@@ -18,6 +18,7 @@
 | Shared Finance authentication integration | backend-developer + frontend-developer | BLOCKED | Backend authorization and mobile token integration implemented; mobile verification unavailable and finance DB integration remains unverified. |
 | Backend financial database verification | qa-qc | PENDING | Requires PostgreSQL availability to apply V2 and test SQL-backed endpoints/rollback. |
 | Mobile verification | qa-qc | PENDING | Requires Flutter/Dart tooling to run format, analyze, and tests. |
+| T-037 Reference SaveMon Flutter UI | frontend-developer | PARTIAL | Directly on `dev`: Vietnamese mock Home/history/scanner/result screens and navigation; focused preview tests 2/2 and targeted UI analysis pass. Whole QR-scan analysis/test targets remain blocked by existing `ApiClient.sendMultipartFile` mismatch and shared-finance const-map compile error; no emulator visual QA. No QR parsing/backend/persistence added. |
 
 ## Verification Record (2026-10-09)
 

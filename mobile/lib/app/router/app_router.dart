@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_page.dart';
+import '../../features/qr_bill_scan/presentation/expense_scan_page.dart';
+import '../../features/qr_bill_scan/presentation/expense_history_preview_page.dart';
 import '../../features/identity/presentation/login_page.dart';
 import '../../features/identity/presentation/profile_page.dart';
 import '../../features/identity/presentation/registration_page.dart';
@@ -14,10 +16,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (context, state) => const HomePage()),
+      GoRoute(
+          path: '/expense-scan',
+          builder: (context, state) => const ExpenseScanPage()),
+      GoRoute(
+          path: '/expense-scan/result',
+          builder: (context, state) => const ScanResultPage()),
+      GoRoute(
+          path: '/expense-history',
+          builder: (context, state) => const ExpenseHistoryPage()),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(path: '/register', builder: (context, state) => const RegistrationPage()),
-      GoRoute(path: '/profile', builder: (context, state) => const ProfilePage()),
-      GoRoute(path: '/personal-finance', builder: (context, state) => const PersonalFinancePage()),
+      GoRoute(
+          path: '/register',
+          builder: (context, state) => const RegistrationPage()),
+      GoRoute(
+          path: '/profile', builder: (context, state) => const ProfilePage()),
+      GoRoute(
+          path: '/personal-finance',
+          builder: (context, state) => const PersonalFinancePage()),
       GoRoute(
         path: '/personal-finance/transactions/:transactionId',
         builder: (context, state) => TransactionDetailPage(
@@ -30,7 +46,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/shared-finance/vault/:vaultId',
-        builder: (context, state) => SharedVaultPage(vaultId: state.pathParameters['vaultId']!),
+        builder: (context, state) =>
+            SharedVaultPage(vaultId: state.pathParameters['vaultId']!),
       ),
       GoRoute(
         path: '/shared-finance/vault/:vaultId/expenses/:expenseId',

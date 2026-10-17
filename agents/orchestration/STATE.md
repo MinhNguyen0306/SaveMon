@@ -24,6 +24,10 @@ Overall status: IN_PROGRESS
 * Verification of finance persistence/migration against PostgreSQL
 * Mobile verification and final integration QA
 
+| Current task | Status |
+|---|---|
+| T-037 Flutter reference UI | Implemented directly on `dev`: Vietnamese mock Home/history/scanner/result views, preview state routes, adaptive scanner layout, no QR parsing or posting. Independent QA: focused preview tests 2/2 pass; targeted UI/router analyzer clean. Full scan-directory analysis/tests remain blocked by unrelated `ApiClient.sendMultipartFile` and shared-finance const-map errors; no emulator visual validation. |
+
 ## Blocked
 
 * Personal Finance backend foundation: compilation and focused tests pass, but the V2 migration and financial JDBC workflows have not been exercised against PostgreSQL in this session.
