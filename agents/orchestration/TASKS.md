@@ -18,7 +18,7 @@
 | Shared Finance authentication integration | backend-developer + frontend-developer | BLOCKED | Backend authorization and mobile token integration implemented; mobile verification unavailable and finance DB integration remains unverified. |
 | Backend financial database verification | qa-qc | PENDING | Requires PostgreSQL availability to apply V2 and test SQL-backed endpoints/rollback. |
 | Mobile verification | qa-qc | PENDING | Requires Flutter/Dart tooling to run format, analyze, and tests. |
-| T-037 Reference SaveMon Flutter UI | frontend-developer | PARTIAL | Commits pushed through `1e6093f57aee09a816fa15fc6c86f08e5f7e1102`; auth/session fence, navigation, Vietnamese previews/tooltips and warm-neutral/green ThemeData implemented. FE changed button min width to finite constraints, corrected stale nav assertions, and added themed Transactions layout test. Independent QA pending; full bottom-nav test remains blocked by pre-existing shared-finance const-map error. No QR parsing/backend/persistence. |
+| T-037 Reference SaveMon Flutter UI | frontend-developer | PARTIAL | Review PASS through `678baced6dad25e4cd283f15c0e1cd469364ed36`; reviewer LOW mock-history label now implemented with exact widget assertion. Independent QA: history preview test 2/2 and targeted analyze pass; prior auth/finance tests 4/4. Bottom-nav runtime remains blocked by pre-existing shared-finance const-map error; simulator QA unavailable. Final delta commit/review pending. |
 
 ## Verification Record (2026-10-09)
 

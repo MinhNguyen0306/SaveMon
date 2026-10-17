@@ -26,7 +26,7 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Latest pushed commit `1e6093f57aee09a816fa15fc6c86f08e5f7e1102`; FE corrected global button minimum width to finite constraints, refreshed stale assertions and added themed Transactions layout coverage. Focused widget/finance tests pass per FE; independent QA pending. Full bottom-nav test remains blocked by pre-existing shared-finance const-map error. |
+| T-037 Flutter reference UI | Commit `678baced6dad25e4cd283f15c0e1cd469364ed36` reviewed PASS; prior HIGH/MEDIUM findings resolved. LOW mock-history label added and asserted; independent QA confirms 2/2 history preview tests and targeted analyzer pass. Final delta commit/re-review pending; bottom-nav runtime and simulator visual check remain unavailable. |
 
 ## Blocked
 

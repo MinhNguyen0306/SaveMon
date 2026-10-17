@@ -41,6 +41,7 @@ void main() {
     await tester.pumpWidget(
         ProviderScope(child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
+    expect(find.text('Dữ liệu minh họa'), findsOneWidget);
     expect(find.text('Starbucks'), findsOneWidget);
     await tester.tap(find.text('Qu\u{E9}t QR h\u{F3}a \u{111}\u{1A1}n'));
     await tester.pumpAndSettle();
