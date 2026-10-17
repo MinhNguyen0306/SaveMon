@@ -8,7 +8,7 @@
 | Registration | backend-developer | DONE | Canonical email, password policy, post-commit token port, duplicate conflict, and issuer-unavailable behavior implemented. |
 | Login | backend-developer | DONE | Same success shape as registration; dummy Argon2id verification for unknown email. |
 | User Profile | backend-developer | DONE | GET/PATCH behavior and displayName validation implemented. |
-| Registration/Login UI | frontend-developer | BLOCKED | Implemented; tests authored, but Flutter/Dart verification unavailable. |
+| Registration/Login UI | frontend-developer | BLOCKED | Implemented; tests authored, but targeted verification for the auth forms remains outstanding. |
 | Authentication QA | qa-qc | DONE | Static contract review passed; login/registration/profile backend behavior reviewed. |
 | Personal Finance domain/API foundation | backend-developer | BLOCKED | Endpoints, persistence, reversal, history, calendar/summary implemented and focused tests pass; requires PostgreSQL migration/JDBC workflow verification. |
 | Personal Finance frontend foundation | frontend-developer | BLOCKED | Read-only accounts, transaction history/detail, summary, calendar implemented; full verification remains outstanding. Flutter tooling is available; prior full test/analyzer results are not established. |
