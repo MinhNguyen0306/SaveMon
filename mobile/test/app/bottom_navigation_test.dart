@@ -58,7 +58,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('Ch\u{00E0}o m\u{1EEB}ng b\u{1EA1}n'), findsOneWidget);
+    expect(
+        find.text(
+            'Ch\u{00E0}o m\u{1EEB}ng b\u{1EA1}n \u{0111}\u{1EBF}n v\u{1EDB}i SaveMon'),
+        findsOneWidget);
     expect(find.text('8.250.000 \u{20AB}'), findsNothing);
     await tester.tap(find.text('\u{0110}\u{0103}ng nh\u{1EAD}p'));
     await tester.pumpAndSettle();

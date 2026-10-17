@@ -26,7 +26,7 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Session/cache fence, Transactions summary/calendar, and tooltip fixes implemented on `dev`; independent QA confirms subject-change epoch behavior, retained-shell/provider fencing, finance sections, and auth preview. 7 focused assertions passed; scanner test/analyzer feature sweep still blocked by existing `expense_scan_repository.dart:31` call to missing `ApiClient.sendMultipartFile`; final delta uncommitted and review pending. |
+| T-037 Flutter reference UI | Auth/session fence, Transactions summary/calendar, tooltip, stale-test, and reference ThemeData fixes implemented on `dev`. Independent QA: widget tests 2/2 pass, targeted theme/test analysis clean; previous session/finance/preview tests 7 assertions pass. Bottom-nav production test remains compile-blocked by pre-existing shared-finance const-map error; commit/re-review of latest fixes pending. |
 
 ## Blocked
 

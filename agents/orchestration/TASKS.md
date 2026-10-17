@@ -18,7 +18,7 @@
 | Shared Finance authentication integration | backend-developer + frontend-developer | BLOCKED | Backend authorization and mobile token integration implemented; mobile verification unavailable and finance DB integration remains unverified. |
 | Backend financial database verification | qa-qc | PENDING | Requires PostgreSQL availability to apply V2 and test SQL-backed endpoints/rollback. |
 | Mobile verification | qa-qc | PENDING | Requires Flutter/Dart tooling to run format, analyze, and tests. |
-| T-037 Reference SaveMon Flutter UI | frontend-developer | PARTIAL | Earlier commits `04b0070ba25fe954666972a25f0316c40663131f`, `9ebb06e898995c88e51fcfeefe0965d2fd07e918`, `33dd610b95dfacd06214dae9823476fe2c76c282` pushed. Reviewer findings fixed locally: signed-out/auth state, subject epoch cache fence, Transactions summary/calendar, scanner framing/tooltips. Independent QA: subject-fence/home/finance/preview checks pass, 7 assertions total; scanner feature test/analyze sweep blocked by existing `expense_scan_repository.dart:31` missing `ApiClient.sendMultipartFile`. Delta commit/review pending. No QR parsing/backend/persistence. |
+| T-037 Reference SaveMon Flutter UI | frontend-developer | PARTIAL | Commits pushed through `f0bf9aca2120624617e3961ac5a7625e423021bd`; auth/session fence, Transactions summary/calendar, Vietnamese tooltip, stale widget expectations, and warm-neutral/green reference ThemeData fixed. Independent QA: Home widget tests 2/2 and targeted analyzer pass; prior focused session/finance/preview suite 7 assertions pass. Bottom-nav test remains blocked by pre-existing shared-finance const-map error; latest delta commit/review pending. No QR parsing/backend/persistence. |
 
 ## Verification Record (2026-10-09)
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:savemon_mobile/app/app.dart';
 import 'package:savemon_mobile/core/session/auth_state.dart';
+import 'package:savemon_mobile/features/home/presentation/home_page.dart';
 
 class _UnauthenticatedState extends AuthStateController {
   @override
@@ -10,43 +10,56 @@ class _UnauthenticatedState extends AuthStateController {
       AuthenticationStatus.unauthenticated;
 }
 
+class _AuthenticatedState extends AuthStateController {
+  @override
+  Future<AuthenticationStatus> build() async =>
+      AuthenticationStatus.authenticated;
+}
+
 void main() {
-  testWidgets('home presents reference dashboard and navigation',
+  testWidgets(
+      'signed-out Home shows welcome and auth actions, not mock finance',
       (tester) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(ProviderScope(
-        overrides: [authStateProvider.overrideWith(_UnauthenticatedState.new)],
-        child: const SaveMonApp()));
+      overrides: [authStateProvider.overrideWith(_UnauthenticatedState.new)],
+      child: const MaterialApp(home: HomePage()),
+    ));
     await tester.pumpAndSettle();
+
     expect(find.text('SaveMon'), findsOneWidget);
-    expect(find.text('T\u1ed5ng chi th\u00e1ng 4/2025'), findsOneWidget);
-    expect(find.text('Danh m\u1ee5c chi ti\u00eau'), findsOneWidget);
-    expect(find.text('Giao d\u1ecbch g\u1ea7n \u0111\u00e2y'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pumpAndSettle();
-    expect(find.text('Qu\u00e9t QR h\u00f3a \u0111\u01a1n'), findsOneWidget);
+    expect(
+        find.text(
+            'Ch\u{00E0}o m\u{1EEB}ng b\u{1EA1}n \u{0111}\u{1EBF}n v\u{1EDB}i SaveMon'),
+        findsOneWidget);
+    expect(find.text('\u{0110}\u{0103}ng nh\u{1EAD}p'), findsOneWidget);
+    expect(find.text('\u{0110}\u{0103}ng k\u{00FD}'), findsOneWidget);
+    expect(find.text('Qu\u{1EF9} chung'), findsOneWidget);
+    expect(find.text('8.250.000 \u{20AB}'), findsNothing);
+    expect(find.text('Danh m\u{1EE5}c chi ti\u{00EA}u'), findsNothing);
   });
 
-  testWidgets('history, scanner and preview result routes render',
+  testWidgets('signed-in Home labels its reference dashboard as demo data',
       (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(ProviderScope(
-        overrides: [authStateProvider.overrideWith(_UnauthenticatedState.new)],
-        child: const SaveMonApp()));
+      overrides: [authStateProvider.overrideWith(_AuthenticatedState.new)],
+      child: const MaterialApp(home: HomePage()),
+    ));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('L\u1ecbch s\u1eed'));
-    await tester.pumpAndSettle();
-    expect(find.text('L\u1ecbch s\u1eed chi ti\u00eau'), findsOneWidget);
-    expect(find.text('Starbucks'), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.image));
-    await tester.pumpAndSettle();
-    expect(find.text('K\u1ebft qu\u1ea3 qu\u00e9t'), findsOneWidget);
-    expect(find.text('B\u1ea3n xem tr\u01b0\u1edbc'), findsOneWidget);
+
+    expect(find.textContaining('S\u{1ED1} li\u{1EC7}u minh h\u{1ECD}a'),
+        findsOneWidget);
+    expect(find.text('T\u{1ED5}ng chi th\u{00E1}ng 4/2025'), findsOneWidget);
+    expect(find.text('Danh m\u{1EE5}c chi ti\u{00EA}u'), findsOneWidget);
+    expect(find.text('Giao d\u{1ECB}ch g\u{1EA7}n \u{0111}\u{00E2}y'),
+        findsOneWidget);
+    expect(find.text('8.250.000 \u{20AB}'), findsOneWidget);
   });
 }
