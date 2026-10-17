@@ -12,6 +12,7 @@ import com.savemon.sharedfinance.application.SharedFinanceOperations.SplitInput;
 import com.savemon.sharedfinance.application.MemberPaidExpenseRules;
 import com.savemon.shared.interfaces.exception.BusinessApiException;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -150,7 +151,8 @@ public class JdbcSharedFinanceAdapter implements SharedFinanceOperations {
         if ("OWNER".equals(target.get("role")) && owners<=1)
             throw fail("VAULT_OWNER_REQUIRED","The last active vault owner cannot be removed.",HttpStatus.CONFLICT);
         Instant now=Instant.now();
-        jdbc.update("UPDATE vault_members SET status='REMOVED',left_at=?,updated_at=? WHERE id=?",now,now,memberId);
+        jdbc.update("UPDATE vault_members SET status='REMOVED',left_at=?,updated_at=? WHERE id=?",
+                Timestamp.from(now),Timestamp.from(now),memberId);
         audit(actor,"MEMBER_REMOVED","VAULT_MEMBER",memberId);
     }
 
@@ -457,7 +459,7 @@ public class JdbcSharedFinanceAdapter implements SharedFinanceOperations {
     }
     private void audit(UUID actor,String action,String entity,UUID id) {
         jdbc.update("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,created_at) VALUES (?,?,?,?,?,?)",
-                UUID.randomUUID(),actor,action,entity,id,Instant.now());
+                UUID.randomUUID(),actor,action,entity,id,Timestamp.from(Instant.now()));
     }
     private static void requireAmount(BigDecimal amount) {
         if(amount==null||amount.signum()<=0||!fitsNumeric(amount))

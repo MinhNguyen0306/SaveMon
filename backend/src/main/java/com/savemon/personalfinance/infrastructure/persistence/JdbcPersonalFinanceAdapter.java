@@ -15,6 +15,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -68,7 +69,7 @@ public class JdbcPersonalFinanceAdapter implements DebitOwnedAccount, PersonalFi
         jdbc.update("""
                 INSERT INTO accounts(id,user_id,name,type,current_balance,currency,status,version,created_at,updated_at)
                 VALUES (?,?,?,?,0,?,'ACTIVE',0,?,?)
-                """, id, user, clean(name, "name"), type, currency(currency), now, now);
+            """, id, user, clean(name, "name"), type, currency(currency), Timestamp.from(now), Timestamp.from(now));
         audit(user, "ACCOUNT_CREATED", "ACCOUNT", id);
         return account(id, user);
     }
@@ -509,7 +510,7 @@ public class JdbcPersonalFinanceAdapter implements DebitOwnedAccount, PersonalFi
     }
     private void audit(UUID actor, String action, String entity, UUID id) {
         jdbc.update("INSERT INTO audit_logs(id,actor_user_id,action,entity_type,entity_id,created_at) VALUES (?,?,?,?,?,?)",
-                UUID.randomUUID(), actor, action, entity, id, Instant.now());
+            UUID.randomUUID(), actor, action, entity, id, Timestamp.from(Instant.now()));
     }
     private void audit(UUID actor, String action, String entity, UUID id, Object metadata) {
         try {
