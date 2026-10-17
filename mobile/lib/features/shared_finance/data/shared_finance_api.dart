@@ -219,10 +219,10 @@ class SharedFinanceApi {
 class SharedExpenseFunding {
   const SharedExpenseFunding.vault() : _values = const {'type': 'VAULT'};
 
-  const SharedExpenseFunding.member({
+  SharedExpenseFunding.member({
     required String payerMemberId,
     required String sourceAccountId,
-  }) : _values = const {
+  }) : _values = {
           'type': 'MEMBER',
           'payerMemberId': payerMemberId,
           'sourceAccountId': sourceAccountId,

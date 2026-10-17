@@ -111,7 +111,7 @@ void main() {
         currency: 'VND',
         description: 'Dinner',
         expenseDate: '2026-10-08T19:00:00Z',
-        funding: const SharedExpenseFunding.member(
+        funding: SharedExpenseFunding.member(
           payerMemberId: 'member-1',
           sourceAccountId: 'account-1',
         ),
