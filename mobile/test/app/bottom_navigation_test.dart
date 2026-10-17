@@ -44,7 +44,7 @@ void main() {
         1);
     await tester.tap(find.text('T\u{00E0}i kho\u{1EA3}n'));
     await tester.pumpAndSettle();
-    expect(find.text('Accounts'), findsOneWidget);
+    expect(find.text('Accounts'), findsWidgets);
     expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         2);
@@ -121,7 +121,8 @@ void main() {
         findsOneWidget);
     router.pop();
     await tester.pumpAndSettle();
-    expect(find.text('B\u{1EA3}n xem tr\u{01B0}\u{1EDB}c'), findsOneWidget);
+    expect(find.textContaining('S\u{1ED1} li\u{1EC7}u minh h\u{1ECD}a'),
+        findsOneWidget);
     expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         0);

@@ -26,7 +26,7 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Auth/session fence, Transactions summary/calendar, tooltip, stale-test, and reference ThemeData fixes implemented on `dev`. Independent QA: widget tests 2/2 pass, targeted theme/test analysis clean; previous session/finance/preview tests 7 assertions pass. Bottom-nav production test remains compile-blocked by pre-existing shared-finance const-map error; commit/re-review of latest fixes pending. |
+| T-037 Flutter reference UI | Latest pushed commit `1e6093f57aee09a816fa15fc6c86f08e5f7e1102`; FE corrected global button minimum width to finite constraints, refreshed stale assertions and added themed Transactions layout coverage. Focused widget/finance tests pass per FE; independent QA pending. Full bottom-nav test remains blocked by pre-existing shared-finance const-map error. |
 
 ## Blocked
 

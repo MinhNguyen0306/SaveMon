@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:savemon_mobile/app/theme/app_theme.dart';
 import 'package:savemon_mobile/features/personal_finance/data/models/personal_finance_models.dart';
 import 'package:savemon_mobile/features/personal_finance/presentation/personal_finance_page.dart';
 
@@ -19,12 +20,15 @@ void main() {
             const TransactionHistoryPage(
                 items: [], page: 0, size: 20, totalItems: 0, totalPages: 0)),
       ],
-      child: const MaterialApp(
-        home: PersonalFinancePage(section: PersonalFinanceSection.transactions),
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: const PersonalFinancePage(
+            section: PersonalFinanceSection.transactions),
       ),
     ));
     await tester.pumpAndSettle();
 
+    expect(tester.takeException(), isNull);
     expect(find.text('Summary and calendar'), findsOneWidget);
     expect(find.text('Calendar activity · VND'), findsOneWidget);
     expect(find.text('Transaction history'), findsOneWidget);
@@ -39,8 +43,10 @@ void main() {
             const PageResult<PersonalAccount>(
                 items: [], page: 0, size: 20, totalItems: 0, totalPages: 0)),
       ],
-      child: const MaterialApp(
-        home: PersonalFinancePage(section: PersonalFinanceSection.accounts),
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home:
+            const PersonalFinancePage(section: PersonalFinanceSection.accounts),
       ),
     ));
     await tester.pumpAndSettle();
