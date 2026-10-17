@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/session/auth_state.dart';
 
 class UserProfile {
-  const UserProfile({required this.id, required this.email, required this.displayName});
+  const UserProfile(
+      {required this.id, required this.email, required this.displayName});
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
         id: _string(json, 'id'),
@@ -39,7 +41,9 @@ String _string(Map<String, dynamic> json, String key) {
   throw FormatException('Expected "$key" to be a string.');
 }
 
-final profileRepositoryProvider = Provider<ProfileRepository>((ref) =>
-    ProfileRepository(ref.watch(apiClientProvider)));
-final currentUserProfileProvider = FutureProvider<UserProfile>((ref) =>
-    ref.watch(profileRepositoryProvider).getCurrentUser());
+final profileRepositoryProvider = Provider<ProfileRepository>(
+    (ref) => ProfileRepository(ref.watch(apiClientProvider)));
+final currentUserProfileProvider = FutureProvider<UserProfile>((ref) {
+  ref.watch(authSubjectEpochProvider);
+  return ref.watch(profileRepositoryProvider).getCurrentUser();
+});

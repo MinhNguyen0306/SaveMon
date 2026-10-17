@@ -3,28 +3,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/session/auth_state.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../data/models/personal_finance_models.dart';
 import '../data/providers.dart';
 
-final personalAccountsPageProvider = StateProvider<int>((ref) => 0);
-final personalTransactionPageProvider = StateProvider<int>((ref) => 0);
-final personalCurrencyProvider = StateProvider<String>((ref) => '');
+final personalAccountsPageProvider = StateProvider<int>((ref) {
+  ref.watch(authSubjectEpochProvider);
+  return 0;
+});
+final personalTransactionPageProvider = StateProvider<int>((ref) {
+  ref.watch(authSubjectEpochProvider);
+  return 0;
+});
+final personalCurrencyProvider = StateProvider<String>((ref) {
+  ref.watch(authSubjectEpochProvider);
+  return '';
+});
 final personalAccountsProvider =
-    FutureProvider.family<PageResult<PersonalAccount>, int>((ref, page) =>
-        ref.watch(personalFinanceRepositoryProvider).listAccounts(page: page));
+    FutureProvider.family<PageResult<PersonalAccount>, int>((ref, page) {
+  ref.watch(authSubjectEpochProvider);
+  return ref.watch(personalFinanceRepositoryProvider).listAccounts(page: page);
+});
 final personalTransactionsProvider =
-    FutureProvider.family<TransactionHistoryPage, int>((ref, page) => ref
-        .watch(personalFinanceRepositoryProvider)
-        .listTransactions(page: page));
-final personalSummaryProvider = FutureProvider.family<FinancialSummary, String>(
-    (ref, currency) => ref
-        .watch(personalFinanceRepositoryProvider)
-        .getSummary(currency: currency));
-final personalCalendarProvider = FutureProvider.family<CalendarSummary, String>(
-    (ref, currency) => ref
-        .watch(personalFinanceRepositoryProvider)
-        .getCalendar(currency: currency));
+    FutureProvider.family<TransactionHistoryPage, int>((ref, page) {
+  ref.watch(authSubjectEpochProvider);
+  return ref
+      .watch(personalFinanceRepositoryProvider)
+      .listTransactions(page: page);
+});
+final personalSummaryProvider =
+    FutureProvider.family<FinancialSummary, String>((ref, currency) {
+  ref.watch(authSubjectEpochProvider);
+  return ref
+      .watch(personalFinanceRepositoryProvider)
+      .getSummary(currency: currency);
+});
+final personalCalendarProvider =
+    FutureProvider.family<CalendarSummary, String>((ref, currency) {
+  ref.watch(authSubjectEpochProvider);
+  return ref
+      .watch(personalFinanceRepositoryProvider)
+      .getCalendar(currency: currency);
+});
 
 enum PersonalFinanceSection { overview, transactions, accounts }
 
@@ -86,7 +107,7 @@ class _PersonalFinancePageState extends ConsumerState<PersonalFinancePage> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
-            if (widget.section == PersonalFinanceSection.overview) ...[
+            if (widget.section != PersonalFinanceSection.accounts) ...[
               Text('Summary and calendar',
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),

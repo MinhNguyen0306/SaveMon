@@ -2,9 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class Session {
-  const Session({required this.accessToken});
+  const Session({required this.accessToken, this.subjectId});
 
   final String accessToken;
+
+  /// In-memory identity supplied by the authenticated API response.
+  /// Secure storage intentionally persists only the access token.
+  final String? subjectId;
 }
 
 abstract interface class SessionRepository {

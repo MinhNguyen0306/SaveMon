@@ -8,7 +8,8 @@ import '../../../core/session/auth_state.dart';
 import '../../../core/session/session.dart';
 
 class AuthUser {
-  const AuthUser({required this.id, required this.email, required this.displayName});
+  const AuthUser(
+      {required this.id, required this.email, required this.displayName});
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
         id: _string(json, 'id'),
@@ -55,7 +56,10 @@ class AuthRepository {
       }),
     );
     final result = _parseAuthenticationResponse(response.body);
-    await _saveSession(Session(accessToken: result.accessToken));
+    await _saveSession(Session(
+      accessToken: result.accessToken,
+      subjectId: result.user.id,
+    ));
     return result;
   }
 
@@ -73,7 +77,10 @@ class AuthRepository {
       }),
     );
     final result = _parseAuthenticationResponse(response.body);
-    await _saveSession(Session(accessToken: result.accessToken));
+    await _saveSession(Session(
+      accessToken: result.accessToken,
+      subjectId: result.user.id,
+    ));
     return result;
   }
 
@@ -90,7 +97,8 @@ class AuthRepository {
     final user = AuthUser.fromJson(decoded['user'] as Map<String, dynamic>);
     final token = decoded['accessToken'] as String;
     if (token.isEmpty) {
-      throw const FormatException('Authentication response contains an empty token.');
+      throw const FormatException(
+          'Authentication response contains an empty token.');
     }
     final expiresIn = decoded['expiresIn'] as int;
     return AuthenticationResult(

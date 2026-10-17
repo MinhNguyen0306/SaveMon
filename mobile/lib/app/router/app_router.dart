@@ -15,6 +15,9 @@ import '../../features/shared_finance/presentation/shared_expense_detail_page.da
 import '../../features/shared_finance/presentation/shared_vault_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Recreate the stateful shell only when its authenticated subject changes,
+  // never for ordinary same-subject token rotation.
+  ref.watch(authSubjectEpochProvider);
   final refresh = _RouterRefresh();
   ref.listen(authStateProvider, (_, __) => refresh.refresh());
   final router = GoRouter(

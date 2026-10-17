@@ -26,7 +26,7 @@ Overall status: IN_PROGRESS
 
 | Current task | Status |
 |---|---|
-| T-037 Flutter reference UI | Initial commit `04b0070ba25fe954666972a25f0316c40663131f`; reviewer-fix delta ready for commit on `dev`: restored auth actions, gated demo finance, stateful shell/contextual routes, improved receipt framing/corners, fixed tooltip encoding. Independent QA PASS_WITH_LIMITATION: 4 focused tests and targeted analyzer pass; production shell test cannot compile due unrelated shared-finance const-map error; simulator inspection not run. |
+| T-037 Flutter reference UI | Session/cache fence, Transactions summary/calendar, and tooltip fixes implemented on `dev`; independent QA confirms subject-change epoch behavior, retained-shell/provider fencing, finance sections, and auth preview. 7 focused assertions passed; scanner test/analyzer feature sweep still blocked by existing `expense_scan_repository.dart:31` call to missing `ApiClient.sendMultipartFile`; final delta uncommitted and review pending. |
 
 ## Blocked
 
