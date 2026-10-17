@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -38,12 +40,11 @@ public class RegisterUser {
         new Password(password);
         String normalizedDisplayName = normalizeDisplayName(displayName);
 
-        if (users.findByEmail(canonicalEmail).isPresent()) {
-            throw new IdentityConflictException();
-        }
-
         User createdUser;
         try {
+            if (users.findByEmail(canonicalEmail).isPresent()) {
+                throw new IdentityConflictException();
+            }
             createdUser = transactionTemplate.execute(status -> {
                 if (users.findByEmail(canonicalEmail).isPresent()) {
                     throw new IdentityConflictException();
@@ -62,6 +63,8 @@ public class RegisterUser {
         } catch (DataIntegrityViolationException exception) {
             // The unique canonical-email index is the final arbiter for concurrent registrations.
             throw new IdentityConflictException();
+        } catch (DataAccessException | TransactionException exception) {
+            throw new AuthServiceUnavailableException(exception);
         }
 
         RefreshSessions.IssuedSession issued = sessions.create(createdUser.id());

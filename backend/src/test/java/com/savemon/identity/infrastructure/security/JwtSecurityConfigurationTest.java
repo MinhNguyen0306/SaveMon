@@ -7,12 +7,17 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.savemon.identity.application.CurrentUserProvider;
 import com.savemon.identity.application.SubjectStatusQuery;
+import com.savemon.shared.interfaces.exception.SecurityErrorResponseWriter;
+import com.savemon.shared.interfaces.logging.TraceIdFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,15 +44,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = {
+@SpringBootTest(classes = JwtSecurityConfigurationTest.TestApplication.class, properties = {
         "spring.autoconfigure.exclude="
                 + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,"
                 + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
 })
 @AutoConfigureMockMvc
-@Import(JwtSecurityConfigurationTest.SecurityProbeController.class)
 class JwtSecurityConfigurationTest {
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import({JwtSecurityConfiguration.class, SecurityErrorResponseWriter.class,
+            TraceIdFilter.class, SecurityProbeController.class})
+    static class TestApplication { }
 
     private static final String KEY_ID = "security-test-key";
     private static final KeyPair KEY_PAIR = generateKeyPair();
@@ -114,6 +124,19 @@ class JwtSecurityConfigurationTest {
 
         assertUnauthorized(token(suspended.toString(), KEY_ID, Instant.now().plusSeconds(60)));
         assertUnauthorized(token(missing.toString(), KEY_ID, Instant.now().plusSeconds(60)));
+    }
+
+    @Test
+    void returnsAuthServiceUnavailableWhenSubjectStoreFails() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(subjectStatus.isActive(userId))
+                .thenThrow(new DataAccessResourceFailureException("identity store unavailable"));
+
+        mockMvc.perform(get("/api/v1/security-probe/current-user")
+                        .header("Authorization", "Bearer "
+                                + token(userId.toString(), KEY_ID, Instant.now().plusSeconds(60))))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("AUTH_SERVICE_UNAVAILABLE"));
     }
 
     @Test

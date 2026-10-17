@@ -1,6 +1,7 @@
 package com.savemon.identity.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -12,9 +13,21 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class LoginUserTest {
+    @Test
+    void mapsIdentityStoreOutageToAuthServiceUnavailable() {
+        UserRepository users = mock(UserRepository.class);
+        when(users.findByEmail(any())).thenThrow(new DataAccessResourceFailureException("store down"));
+
+        assertThatThrownBy(() -> new LoginUser(users, mock(PasswordEncoder.class),
+                mock(RefreshSessions.class)).execute("user@example.com", "password-123"))
+                .isInstanceOf(AuthServiceUnavailableException.class)
+                .hasCauseInstanceOf(DataAccessResourceFailureException.class);
+    }
+
     @Test
     void successfulLoginReturnsTheSameTokenAndUserShapeAsRegistration() {
         UserRepository users = mock(UserRepository.class);

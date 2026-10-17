@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
 import org.springframework.http.HttpMethod;
+import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,7 +38,15 @@ public final class ActiveSubjectFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-        if (!subjects.isActive(UUID.fromString(jwt.getName()))) {
+        boolean active;
+        try {
+            active = subjects.isActive(UUID.fromString(jwt.getName()));
+        } catch (DataAccessException exception) {
+            SecurityContextHolder.clearContext();
+            errors.authServiceUnavailable(response);
+            return;
+        }
+        if (!active) {
             SecurityContextHolder.clearContext();
             errors.commence(request, response,
                     new InsufficientAuthenticationException("Subject is not active."));

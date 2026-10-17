@@ -82,6 +82,33 @@ class RegisterUserTest {
         assertThat(transactions.committed).isTrue();
     }
 
+    @Test
+    void mapsInitialIdentityLookupOutageToAuthServiceUnavailable() {
+        UserRepository users = mock(UserRepository.class);
+        when(users.findByEmail(any())).thenThrow(new DataAccessResourceFailureException("store down"));
+
+        assertThatThrownBy(() -> new RegisterUser(users, mock(PasswordEncoder.class),
+                mock(RefreshSessions.class), new TrackingTransactionManager())
+                .execute("user@example.com", "password-123", "User"))
+                .isInstanceOf(AuthServiceUnavailableException.class)
+                .hasCauseInstanceOf(DataAccessResourceFailureException.class);
+    }
+
+    @Test
+    void mapsRegistrationPersistenceOutageToAuthServiceUnavailable() {
+        UserRepository users = mock(UserRepository.class);
+        PasswordEncoder passwords = mock(PasswordEncoder.class);
+        when(users.findByEmail(any())).thenReturn(Optional.empty());
+        when(passwords.encode(anyString())).thenReturn("argon-hash");
+        when(users.save(any())).thenThrow(new DataAccessResourceFailureException("store down"));
+
+        assertThatThrownBy(() -> new RegisterUser(users, passwords,
+                mock(RefreshSessions.class), new TrackingTransactionManager())
+                .execute("user@example.com", "password-123", "User"))
+                .isInstanceOf(AuthServiceUnavailableException.class)
+                .hasCauseInstanceOf(DataAccessResourceFailureException.class);
+    }
+
     private static final class TrackingTransactionManager implements PlatformTransactionManager {
         private boolean active;
         private boolean committed;

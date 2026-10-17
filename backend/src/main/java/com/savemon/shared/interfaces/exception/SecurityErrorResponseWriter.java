@@ -40,6 +40,11 @@ public class SecurityErrorResponseWriter implements AuthenticationEntryPoint, Ac
         writeError(response, HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied.");
     }
 
+    public void authServiceUnavailable(HttpServletResponse response) throws IOException {
+        writeError(response, HttpStatus.SERVICE_UNAVAILABLE,
+                "AUTH_SERVICE_UNAVAILABLE", "Auth service unavailable.");
+    }
+
     private void writeError(
             HttpServletResponse response,
             HttpStatus status,

@@ -4,10 +4,12 @@ import com.savemon.identity.domain.EmailAddress;
 import com.savemon.identity.domain.Password;
 import com.savemon.identity.domain.User;
 import java.util.UUID;
+import org.springframework.dao.DataAccessException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 
 @Service
 @ConditionalOnBean(EntityManagerFactory.class)
@@ -33,7 +35,12 @@ public class LoginUser {
         EmailAddress canonicalEmail = new EmailAddress(email);
         new Password(password);
 
-        User user = users.findByEmail(canonicalEmail).orElse(null);
+        User user;
+        try {
+            user = users.findByEmail(canonicalEmail).orElse(null);
+        } catch (DataAccessException | TransactionException exception) {
+            throw new AuthServiceUnavailableException(exception);
+        }
         if (user == null) {
             passwordEncoder.matches("savemon-dummy-password", DUMMY_PASSWORD_HASH);
             throw new AuthenticationFailedException();
