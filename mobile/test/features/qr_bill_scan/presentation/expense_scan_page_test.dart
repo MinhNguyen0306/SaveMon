@@ -55,7 +55,7 @@ void main() {
         expect(request.url.path, '/api/v1/expense-scans');
         return http.Response(
           '{"outcome":"DRAFT","manualEntryAllowed":true,"draft":{'
-          '"paidTotal":"125.00","currency":"VND",'
+          '"paidTotal":"125.00","currency":null,'
           '"transactionDate":"2026-10-08","merchant":"Cafe Demo",'
           '"missingOrAmbiguousFields":["currency"]}}',
           200,

@@ -13,6 +13,8 @@ const scanReasonCodes = {
   'UNREADABLE_BILL',
 };
 
+const _supportedScanCurrencies = {'VND', 'USD'};
+
 enum ScanOutcome { draft, unsupported, manualEntry }
 
 class ExpenseScanDraft {
@@ -44,12 +46,12 @@ class ExpenseScanDraft {
     }
 
     final paidTotal = _nullableString(json, 'paidTotal');
-    if (paidTotal != null && !_validPaidTotal(paidTotal)) {
-      throw const FormatException('Invalid scan total.');
-    }
     final currency = _nullableString(json, 'currency');
-    if (currency != null && !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
+    if (currency != null && !_supportedScanCurrencies.contains(currency)) {
       throw const FormatException('Invalid scan currency.');
+    }
+    if (paidTotal != null && !_validPaidTotal(paidTotal, currency)) {
+      throw const FormatException('Invalid scan total.');
     }
     final date = _nullableString(json, 'transactionDate');
     if (date != null && !_validDate(date)) {
@@ -68,6 +70,22 @@ class ExpenseScanDraft {
         ) ||
         rawMissing.toSet().length != rawMissing.length) {
       throw const FormatException('Invalid missing scan fields.');
+    }
+    final missing = rawMissing.cast<String>();
+    for (final field in ['paidTotal', 'currency', 'transactionDate']) {
+      final isMissing = missing.contains(field);
+      final isNull = json[field] == null;
+      if (isMissing != isNull) {
+        throw FormatException(
+          'Missing-field classification does not match "$field".',
+        );
+      }
+    }
+    if (paidTotal == null &&
+        currency == null &&
+        date == null &&
+        merchant == null) {
+      throw const FormatException('Empty scan draft.');
     }
 
     return ExpenseScanDraft(
@@ -144,12 +162,37 @@ class ExpenseScanResult {
   }
 }
 
-bool _validPaidTotal(String value) {
-  if (!RegExp(r'^(?:0|[1-9][0-9]{0,14})(?:\.[0-9]{1,4})?$').hasMatch(value)) {
+bool _validPaidTotal(String value, String? currency) {
+  if (!RegExp(r'^[0-9]+(?:\.[0-9]{1,4})?$').hasMatch(value)) {
     return false;
   }
-  final numeric = double.tryParse(value);
-  return numeric != null && numeric > 0;
+  final parts = value.split('.');
+  final fraction = parts.length == 2 ? parts[1] : '';
+  final rawDigits = '${parts[0]}$fraction';
+  final firstNonZero = rawDigits.indexOf(RegExp(r'[1-9]'));
+  if (firstNonZero < 0) return false;
+  var normalizedDigits = rawDigits.substring(firstNonZero);
+  var trailingZeros = 0;
+  while (normalizedDigits.length > 1 && normalizedDigits.endsWith('0')) {
+    normalizedDigits =
+        normalizedDigits.substring(0, normalizedDigits.length - 1);
+    trailingZeros++;
+  }
+  final normalizedScale = fraction.length - trailingZeros;
+  final integerDigits =
+      (normalizedDigits.length - normalizedScale).clamp(0, 1000);
+  if (integerDigits > 15 || normalizedDigits.length > 19) return false;
+  final int maximumScale;
+  if (currency == null) {
+    maximumScale = 4;
+  } else if (currency == 'VND') {
+    maximumScale = 0;
+  } else if (currency == 'USD') {
+    maximumScale = 2;
+  } else {
+    return false;
+  }
+  return normalizedScale <= maximumScale;
 }
 
 bool _validDate(String value) {
