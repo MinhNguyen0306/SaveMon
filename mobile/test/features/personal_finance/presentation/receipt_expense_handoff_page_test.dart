@@ -206,4 +206,25 @@ void main() {
     expect(port.personal.last.idempotencyKey, firstKey);
     expect(port.personal.last.accountId, 'account-1');
   });
+
+  testWidgets('background then resume discards volatile receipt handoff',
+      (tester) async {
+    final port = _CapturePort();
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(port));
+    expect(find.text('125.00'), findsOneWidget);
+    expect(find.text('Cafe Demo'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(find.textContaining('Hãy quét lại.'), findsOneWidget);
+    expect(find.text('125.00'), findsNothing);
+    expect(find.text('Cafe Demo'), findsNothing);
+    expect(find.byKey(const ValueKey('handoff-confirm')), findsNothing);
+    expect(port.personal, isEmpty);
+    expect(port.shared, isEmpty);
+  });
 }

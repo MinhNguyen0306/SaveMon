@@ -19,7 +19,8 @@ class ReceiptExpenseHandoffPage extends ConsumerStatefulWidget {
 }
 
 class _ReceiptExpenseHandoffPageState
-    extends ConsumerState<ReceiptExpenseHandoffPage> {
+    extends ConsumerState<ReceiptExpenseHandoffPage>
+    with WidgetsBindingObserver {
   late final TextEditingController _amount;
   late final TextEditingController _currency;
   late final TextEditingController _date;
@@ -36,10 +37,13 @@ class _ReceiptExpenseHandoffPageState
   bool _saving = false;
   bool _fakeCompleted = false;
   String? _error;
+  bool _discarded = false;
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final prefill = widget.prefill;
     _amount = TextEditingController(text: prefill?.amount ?? '');
     _currency = TextEditingController(text: prefill?.currency ?? '');
@@ -61,6 +65,38 @@ class _ReceiptExpenseHandoffPageState
     }
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _discardVolatileDraft();
+  }
+
+  void _discardVolatileDraft() {
+    if (_discarded) return;
+    _generation++;
+    _discarded = true;
+    for (final field in [
+      _amount,
+      _currency,
+      _date,
+      _description,
+      _accountId,
+      _categoryId,
+      _vaultId,
+      _payerMemberId,
+      _sourceAccountId,
+      _splitLines,
+    ]) {
+      field.clear();
+    }
+    _pendingCommand = null;
+    _expenseContext = null;
+    _funding = null;
+    _fakeCompleted = false;
+    _saving = false;
+    _error = null;
+    if (mounted) setState(() {});
+  }
+
   void _onEdit() {
     _pendingCommand = null;
     _fakeCompleted = false;
@@ -78,6 +114,7 @@ class _ReceiptExpenseHandoffPageState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     for (final field in [
       _amount,
       _currency,
@@ -98,7 +135,7 @@ class _ReceiptExpenseHandoffPageState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.prefill == null) {
+    if (widget.prefill == null || _discarded) {
       return Scaffold(
         appBar: AppBar(title: const Text('Chi tiêu')),
         body: const Center(
@@ -262,7 +299,7 @@ class _ReceiptExpenseHandoffPageState
   }
 
   Future<void> _confirm() async {
-    if (_saving) return;
+    if (_saving || _discarded) return;
     try {
       _pendingCommand ??= _buildCommand();
     } on FormatException catch (error) {
@@ -273,6 +310,7 @@ class _ReceiptExpenseHandoffPageState
       _saving = true;
       _error = null;
     });
+    final generation = _generation;
     try {
       final port = ref.read(receiptExpenseCommandPortProvider);
       final command = _pendingCommand!;
@@ -281,19 +319,23 @@ class _ReceiptExpenseHandoffPageState
       } else {
         await port.recordShared(command as SharedReceiptExpenseIntent);
       }
-      if (mounted) setState(() => _fakeCompleted = true);
+      if (mounted && !_discarded && generation == _generation) {
+        setState(() => _fakeCompleted = true);
+      }
     } on ReceiptExpenseCommandUnavailable {
-      if (mounted) {
+      if (mounted && !_discarded && generation == _generation) {
         setState(() => _error =
             'Lệnh chi tiêu chưa được kết nối trong ứng dụng này. Không có gì được lưu.');
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && !_discarded && generation == _generation) {
         setState(() => _error =
             'Không xác nhận được. Có thể thử lại cùng lệnh; chưa báo thành công.');
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted && !_discarded && generation == _generation) {
+        setState(() => _saving = false);
+      }
     }
   }
 
