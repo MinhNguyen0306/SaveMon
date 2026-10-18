@@ -105,7 +105,9 @@ public final class ExpenseScanCoordinator {
                         ExpenseScanResponse result = future.get(slice, TimeUnit.NANOSECONDS);
                         requireLive(started, cancelled);
                         try { idempotency.complete(userId, scanKey, sourceImage); }
-                        catch (RuntimeException exception) { throw new ScanUnavailableException(); }
+                        catch (RuntimeException exception) {
+                            throw new ScanUnavailableException(ScanUnavailableException.Reason.TERMINAL);
+                        }
                         claimed = false;
                         return result;
                     } catch (TimeoutException ignored) {
@@ -113,12 +115,12 @@ public final class ExpenseScanCoordinator {
                                 totalLimit.toNanos() - (System.nanoTime() - started));
                     }
                 }
-                throw new ScanUnavailableException();
+                throw new ScanUnavailableException(ScanUnavailableException.Reason.TIMEOUT);
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
-                throw new ScanUnavailableException();
+                throw new ScanUnavailableException(ScanUnavailableException.Reason.TIMEOUT);
             } catch (ExecutionException exception) {
-                throw new ScanUnavailableException();
+                throw new ScanUnavailableException(ScanUnavailableException.Reason.EXTRACTION);
             } finally {
                 if (claimed) {
                     abandoned.set(true);
@@ -127,7 +129,9 @@ public final class ExpenseScanCoordinator {
         } catch (RuntimeException failure) {
             if (claimed) {
                 try { idempotency.fail(userId, scanKey, sourceImage); }
-                catch (RuntimeException terminalFailure) { throw new ScanUnavailableException(); }
+                catch (RuntimeException terminalFailure) {
+                    throw new ScanUnavailableException(ScanUnavailableException.Reason.TERMINAL);
+                }
             }
             throw failure;
         } finally {
@@ -138,10 +142,16 @@ public final class ExpenseScanCoordinator {
 
     private void requireLive(long started, BooleanSupplier cancelled) {
         if (cancelled.getAsBoolean() || System.nanoTime() - started >= totalLimit.toNanos())
-            throw new ScanUnavailableException();
+            throw new ScanUnavailableException(ScanUnavailableException.Reason.TIMEOUT);
     }
 
-    public static final class ScanUnavailableException extends RuntimeException { }
+    public static final class ScanUnavailableException extends RuntimeException {
+        private final Reason reason;
+        public ScanUnavailableException() { this(Reason.CAPACITY); }
+        public ScanUnavailableException(Reason reason) { this.reason = reason; }
+        public Reason reason() { return reason; }
+        public enum Reason { CAPACITY, TIMEOUT, EXTRACTION, TERMINAL }
+    }
     public static final class ClaimException extends RuntimeException {
         private final ExpenseScanIdempotencyStore.ClaimResult result;
         ClaimException(ExpenseScanIdempotencyStore.ClaimResult result) { this.result = result; }
