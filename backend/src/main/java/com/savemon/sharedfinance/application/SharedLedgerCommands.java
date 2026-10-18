@@ -80,6 +80,11 @@ public final class SharedLedgerCommands {
                 HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
+    private static void malformedSplit() {
+        throw new BusinessApiException("VALIDATION_ERROR", "Malformed split derivation input.",
+                HttpStatus.BAD_REQUEST);
+    }
+
     private static void validateDerivation(Derivation derivation, BigDecimal amount, String currency) {
         if (derivation == null) return;
         if (!"largest-remainder-v1".equals(derivation.algorithmVersion())
@@ -151,8 +156,8 @@ public final class SharedLedgerCommands {
     public record Participant(UUID memberId, Integer weight, Integer basisPoints) { }
     public record Line(UUID lineId, BigDecimal amount, List<Participant> participants) {
         public Line {
-            if (participants == null || participants.isEmpty()
-                    || participants.stream().anyMatch(p -> p == null || p.memberId() == null)) invalidSplit();
+            if (lineId == null || participants == null
+                    || participants.stream().anyMatch(p -> p == null || p.memberId() == null)) malformedSplit();
             participants = List.copyOf(participants);
         }
     }
@@ -160,11 +165,11 @@ public final class SharedLedgerCommands {
                                List<Participant> participants, List<Line> lines) {
         public SplitRequest {
             if (participants != null) {
-                if (participants.stream().anyMatch(p -> p == null || p.memberId() == null)) invalidSplit();
+                if (participants.stream().anyMatch(p -> p == null || p.memberId() == null)) malformedSplit();
                 participants = List.copyOf(participants);
             }
             if (lines != null) {
-                if (lines.stream().anyMatch(line -> line == null || line.lineId() == null)) invalidSplit();
+                if (lines.stream().anyMatch(line -> line == null || line.lineId() == null)) malformedSplit();
                 lines = List.copyOf(lines);
             }
         }

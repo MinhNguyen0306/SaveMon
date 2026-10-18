@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,7 +111,7 @@ class OrdinaryExpenseBridgeMvcTest {
                 .andExpect(status().isCreated()).andExpect(header().string("ETag", "\"6\""))
                 .andExpect(content().json("{\"id\":\"shared-receipt\"}"));
         assertThat(seenKey.get()).isEqualTo(key);
-        assertThat(seen.get().amount()).isEqualByComparingTo(new BigDecimal("10.00"));
+        assertThat(seen.get().amount()).isEqualTo(new BigDecimal("10.00"));
         assertThat(seen.get().expenseDate()).isEqualTo(Instant.parse("2020-01-02T12:00:00Z"));
         assertThat(seen.get().datePrecision()).isEqualTo("DATE_ONLY");
         assertThat(seen.get().funding()).isEqualTo("MEMBER");
@@ -173,6 +174,71 @@ class OrdinaryExpenseBridgeMvcTest {
         assertThat(SharedLedgerCommands.class.isAnnotationPresent(org.springframework.stereotype.Service.class)).isFalse();
     }
 
+    @Test void malformedDerivationShapeIsBindingValidationAndNeverWrites() throws Exception {
+        AtomicInteger writes = new AtomicInteger();
+        var mvc = sharedMvc(writes);
+        String member = UUID.randomUUID().toString();
+        String line = UUID.randomUUID().toString();
+        String[] malformed = {
+                "\"participants\":[null]",
+                "\"participants\":[{}]",
+                "\"participants\":null",
+                "\"lines\":[null]",
+                "\"lines\":[{\"amount\":100,\"participants\":[{\"memberId\":\"" + member + "\"}]}]",
+                "\"lines\":null",
+                "\"lines\":[{\"lineId\":\"" + line + "\",\"amount\":100,\"participants\":null}]"
+        };
+        for (String inputFields : malformed) {
+            String body = sharedBody(member, "{\"algorithmVersion\":\"largest-remainder-v1\","
+                    + "\"mode\":\"ITEMIZED\",\"input\":{\"amount\":100,\"currency\":\"VND\","
+                    + "\"mode\":\"ITEMIZED\"," + inputFields + "}}");
+            mvc.perform(post("/api/v1/vaults/{vaultId}/expenses", UUID.randomUUID())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("Idempotency-Key", UUID.randomUUID()).content(body))
+                    .andExpect(status().isBadRequest()).andExpect(content().string("VALIDATION_ERROR"));
+        }
+        assertThat(writes).hasValue(0);
+    }
+
+    @Test void boundSemanticDerivationFailuresRemainUnprocessableAndNeverWrite() throws Exception {
+        AtomicInteger writes = new AtomicInteger();
+        var mvc = sharedMvc(writes);
+        String member = UUID.randomUUID().toString();
+        String invalidAlgorithm = sharedBody(member, "{\"algorithmVersion\":\"wrong-version\","
+                + "\"mode\":\"EQUAL\",\"input\":{\"amount\":100,\"currency\":\"VND\","
+                + "\"mode\":\"EQUAL\",\"participants\":[{\"memberId\":\"" + member + "\"}]}}");
+        mvc.perform(post("/api/v1/vaults/{vaultId}/expenses", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Idempotency-Key", UUID.randomUUID()).content(invalidAlgorithm))
+                .andExpect(status().isUnprocessableEntity()).andExpect(content().string("SPLIT_INPUT_INVALID"));
+        String lineMismatch = sharedBody(member, "{\"algorithmVersion\":\"largest-remainder-v1\","
+                + "\"mode\":\"ITEMIZED\",\"input\":{\"amount\":100,\"currency\":\"VND\","
+                + "\"mode\":\"ITEMIZED\",\"lines\":[{\"lineId\":\"" + UUID.randomUUID() + "\","
+                + "\"amount\":99,\"participants\":[{\"memberId\":\"" + member + "\",\"weight\":1}]}]}}");
+        mvc.perform(post("/api/v1/vaults/{vaultId}/expenses", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Idempotency-Key", UUID.randomUUID()).content(lineMismatch))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(content().string("EXPENSE_SPLIT_TOTAL_MISMATCH"));
+        assertThat(writes).hasValue(0);
+    }
+
+    private org.springframework.test.web.servlet.MockMvc sharedMvc(AtomicInteger writes) {
+        SharedLedgerCommands.Store store = (actor, vault, key, input) -> {
+            writes.incrementAndGet();
+            return new SharedLedgerCommands.Receipt(201, Map.of(), "{}");
+        };
+        return MockMvcBuilders.standaloneSetup(new TestController(
+                new PersonalExpensePostingBridge(new PersonalPosting((a, b, c, d) -> null)),
+                new SharedExpensePostingBridge(new SharedLedgerCommands(store)), strict)).build();
+    }
+
+    private static String sharedBody(String member, String derivation) {
+        return "{\"amount\":100,\"currency\":\"VND\",\"expenseDate\":\"2020-01-01T00:00:00Z\","
+                + "\"funding\":{\"type\":\"VAULT\"},\"splits\":[{\"memberId\":\"" + member
+                + "\",\"amount\":100}],\"splitDerivation\":" + derivation + "}";
+    }
+
     @RestController
     static final class TestController {
         private final PersonalExpensePostingBridge personal;
@@ -193,7 +259,7 @@ class OrdinaryExpenseBridgeMvcTest {
                                       @RequestHeader("Idempotency-Key") UUID key,
                                       @RequestHeader(value = "If-Match", required = false) String ifMatch,
                                       @RequestBody String raw) throws JsonProcessingException {
-            var request = json.readValue(raw, SharedExpensePostingBridge.ExpenseCreate.class);
+            var request = SharedExpensePostingBridge.bind(json, raw);
             var receipt = shared.record(ACTOR, vaultId, key, ifMatch, request);
             var result = ResponseEntity.status(receipt.status());
             receipt.headers().forEach(result::header);
