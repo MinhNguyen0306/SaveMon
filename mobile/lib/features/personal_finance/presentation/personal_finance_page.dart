@@ -712,7 +712,7 @@ String _groupAmount(num amount) {
     if (i > 0 && (digits.length - i) % 3 == 0) out.write('.');
     out.write(digits[i]);
   }
-  if (fraction.isNotEmpty) out.write('.$fraction');
+  if (fraction.isNotEmpty) out.write(',$fraction');
   return out.toString();
 }
 

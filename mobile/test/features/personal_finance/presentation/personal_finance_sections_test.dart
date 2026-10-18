@@ -17,8 +17,8 @@ void main() {
     final today = _dateOnly(now);
     final yesterday = _dateOnly(now.subtract(const Duration(days: 1)));
     final items = [
-      _transaction('one', '${today}T09:00:00Z', 'EXPENSE', 'Coffee', 12.49),
-      _transaction('two', '${today}T15:45:00Z', 'EXPENSE', 'Lunch'),
+      _transaction('one', '${today}T09:00:00Z', 'EXPENSE', 'Coffee', 1234.56),
+      _transaction('two', '${today}T15:45:00Z', 'EXPENSE', 'Lunch', 1234),
       _transaction('three', '${yesterday}T22:00:00Z', 'INCOME', 'Salary'),
     ];
     await tester.pumpWidget(ProviderScope(
@@ -26,7 +26,7 @@ void main() {
         personalCurrencyProvider.overrideWith((ref) => 'VND'),
         personalMonthSummaryProvider.overrideWith((ref, range) async =>
             const FinancialSummary(
-                currency: 'VND', income: 3.5, expense: 12.49, net: -8.99)),
+                currency: 'VND', income: 1234.5, expense: 1234.56, net: -0.06)),
         personalTransactionsProvider.overrideWith((ref, page) async =>
             TransactionHistoryPage(
                 items: items,
@@ -46,9 +46,10 @@ void main() {
     expect(find.text('Hôm nay'), findsOneWidget);
     expect(find.text('Hôm qua'), findsOneWidget);
     expect(find.text('2 giao dịch'), findsOneWidget);
-    expect(find.text('12.49 VND'), findsOneWidget);
-    expect(find.text('3.5 VND'), findsOneWidget);
-    expect(find.text('- 12.49 VND'), findsOneWidget);
+    expect(find.text('1.234,56 VND'), findsOneWidget);
+    expect(find.text('1.234,5 VND'), findsOneWidget);
+    expect(find.text('- 1.234,56 VND'), findsOneWidget);
+    expect(find.text('- 1.234 VND'), findsOneWidget);
     expect(find.text('Coffee'), findsWidgets);
     expect(find.text('Lunch'), findsOneWidget);
     expect(find.text('Salary'), findsOneWidget);
@@ -90,7 +91,7 @@ void main() {
           if (range.$1 == 'BAD') throw Exception('unsupported currency');
           if (summaryCalls == 1) {
             return const FinancialSummary(
-                currency: 'VND', income: 0, expense: 12.49, net: -12.49);
+                currency: 'VND', income: 0, expense: 1234.56, net: -1234.56);
           }
           if (summaryCalls == 2) throw Exception('temporary network failure');
           return const FinancialSummary(
@@ -107,7 +108,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('12.49 VND'), findsOneWidget);
+    expect(find.text('1.234,56 VND'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, 400));
     await tester.pump();
@@ -119,7 +120,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, 400));
     await tester.pump();
     await tester.pumpAndSettle();
-    expect(find.text('9.5 VND'), findsOneWidget);
+    expect(find.text('9,5 VND'), findsOneWidget);
     expect(summaryCalls, 3);
 
     final currencyField = find.widgetWithText(TextField, 'Đơn vị tiền tệ');
