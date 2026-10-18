@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/expense_scan_repository.dart';
+import '../data/scan_models.dart';
+import '../../personal_finance/application/receipt_expense_handoff.dart';
 import 'expense_scan_controller.dart';
 
 class ExpenseScanPage extends ConsumerWidget {
@@ -119,6 +121,14 @@ class ExpenseScanPage extends ConsumerWidget {
                   ),
                 ),
               ),
+            if (state.stage == ExpenseScanStage.review)
+              FilledButton.icon(
+                key: const ValueKey('continue-to-finance-form'),
+                onPressed: () =>
+                    _continueToFinanceForm(context, controller, state),
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('Tiếp tục đến biểu mẫu chi tiêu'),
+              ),
             const SizedBox(height: 12),
             if (state.stage == ExpenseScanStage.guidance ||
                 state.stage == ExpenseScanStage.recovery)
@@ -160,6 +170,39 @@ class ExpenseScanPage extends ConsumerWidget {
           decoration: InputDecoration(labelText: label),
         ),
       );
+
+  void _continueToFinanceForm(
+    BuildContext context,
+    ExpenseScanController controller,
+    ExpenseScanState state,
+  ) {
+    try {
+      final merchant = state.merchant.trim();
+      ExpenseScanDraft.fromJson({
+        'paidTotal': state.paidTotal.trim(),
+        'currency': state.currency.trim(),
+        'transactionDate': state.transactionDate.trim(),
+        'merchant': merchant.isEmpty ? null : merchant,
+        'missingOrAmbiguousFields': const <String>[],
+      });
+      final prefill = ReceiptExpensePrefill(
+        amount: state.paidTotal.trim(),
+        currency: state.currency.trim(),
+        civilDate: state.transactionDate.trim(),
+        merchant: merchant.isEmpty ? null : merchant,
+      );
+      controller.discard();
+      context.push('/expense-scan/confirm', extra: prefill);
+    } on FormatException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Hãy bổ sung số tiền, tiền tệ và ngày hóa đơn hợp lệ trước.',
+          ),
+        ),
+      );
+    }
+  }
 }
 
 class _RecoveryCard extends StatelessWidget {

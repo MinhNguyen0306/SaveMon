@@ -8,6 +8,8 @@ import '../../features/identity/presentation/login_page.dart';
 import '../../features/identity/presentation/profile_page.dart';
 import '../../features/identity/presentation/registration_page.dart';
 import '../../features/personal_finance/presentation/personal_finance_page.dart';
+import '../../features/personal_finance/presentation/receipt_expense_handoff_page.dart';
+import '../../features/personal_finance/application/receipt_expense_handoff.dart';
 import '../../features/personal_finance/presentation/transaction_detail_page.dart';
 import '../../features/qr_bill_scan/presentation/expense_history_preview_page.dart'
     show ExpenseHistoryPage;
@@ -101,6 +103,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/expense-scan',
         builder: (_, __) => const ExpenseScanPage(),
         routes: [
+          GoRoute(
+            path: 'confirm',
+            builder: (_, state) => ReceiptExpenseHandoffPage(
+              prefill: state.extra is ReceiptExpensePrefill
+                  ? state.extra! as ReceiptExpensePrefill
+                  : null,
+            ),
+          ),
           GoRoute(
             path: 'result',
             builder: (_, __) => const ScanResultPage(),
