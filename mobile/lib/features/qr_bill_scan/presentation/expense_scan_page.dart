@@ -1,237 +1,225 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Static presentation-only scanner preview. It deliberately does not open a
-/// camera, decode a QR code, or create a financial transaction.
-class ExpenseScanPage extends StatelessWidget {
+import '../data/expense_scan_repository.dart';
+import 'expense_scan_controller.dart';
+
+class ExpenseScanPage extends ConsumerWidget {
   const ExpenseScanPage({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xff211914),
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, viewport) => SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: viewport.maxHeight),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(expenseScanControllerProvider);
+    final controller = ref.read(expenseScanControllerProvider.notifier);
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quét hóa đơn nhà hàng'),
+        leading: IconButton(
+          tooltip: 'Quay lại',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            controller.discard();
+            if (context.canPop()) context.pop();
+          },
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          children: [
+            const Icon(Icons.receipt_long_outlined, size: 58),
+            const SizedBox(height: 12),
+            Text('Chụp rõ toàn bộ hóa đơn',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                )),
+            const SizedBox(height: 8),
+            Text(
+              'Đặt hóa đơn phẳng, đủ sáng, ảnh nét và tránh lóa. SaveMon chỉ đề xuất thông tin để bạn kiểm tra; chưa tạo giao dịch.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 22),
+            if (state.stage == ExpenseScanStage.selecting ||
+                state.stage == ExpenseScanStage.submitting)
+              const Card(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                  padding: EdgeInsets.all(20),
+                  child: Column(children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Đang xử lý ảnh trong phiên hiện tại…'),
+                  ]),
+                ),
+              ),
+            if (state.stage == ExpenseScanStage.recovery)
+              _RecoveryCard(
+                failure: state.failure,
+                reasonCode: state.reasonCode,
+                onRetry: controller.retry,
+                onManual: controller.beginManualEntry,
+              ),
+            if (state.stage == ExpenseScanStage.manual)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.edit_note),
+                  title: const Text('Nhập thủ công'),
+                  subtitle: const Text(
+                    'Bản scan tạm đã được xóa. Mở khu vực giao dịch để tiếp tục thủ công.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go('/personal-finance'),
+                ),
+              ),
+            if (state.stage == ExpenseScanStage.review)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            tooltip: 'Quay \u{1EA1}i',
-                            onPressed: () => context.pop(),
-                            color: Colors.white,
-                            icon: const Icon(Icons.arrow_back),
+                      Text('Kiểm tra thông tin đề xuất',
+                          style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      const Text('Mọi trường đều có thể chỉnh sửa.'),
+                      _editField('Nhà cung cấp', 'scan-merchant',
+                          state.merchant, (v) => controller.edit(merchant: v)),
+                      _editField(
+                          'Tổng đã thanh toán',
+                          'scan-total',
+                          state.paidTotal,
+                          (v) => controller.edit(paidTotal: v)),
+                      _editField('Tiền tệ', 'scan-currency', state.currency,
+                          (v) => controller.edit(currency: v)),
+                      _editField(
+                          'Ngày hóa đơn (YYYY-MM-DD)',
+                          'scan-date',
+                          state.transactionDate,
+                          (v) => controller.edit(date: v)),
+                      if (state.draft?.missingOrAmbiguousFields.isNotEmpty ??
+                          false)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            'Thiếu hoặc chưa rõ một số trường. Hãy tự kiểm tra, không dùng giá trị chưa xác minh.',
+                            style: TextStyle(color: Colors.deepOrange),
                           ),
-                          const Expanded(
-                            child: Text(
-                              'Qu\u{00E9}t QR h\u{00F3}a \u{0111}\u{01A1}n',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip:
-                                'Xem k\u{1EBF}t qu\u{1EA3} minh h\u{1ECD}a',
-                            onPressed: () =>
-                                context.push('/expense-scan/result'),
-                            color: Colors.white,
-                            icon: const Icon(Icons.image_outlined),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        '\u{0110}\u{01B0}a m\u{00E3} QR v\u{00E0}o khung \u{0111}\u{1EC3} qu\u{00E9}t t\u{1EF1} \u{0111}\u{1ED9}ng',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                      const SizedBox(height: 18),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final previewHeight = math.min(
-                            390.0,
-                            math.max(210.0, viewport.maxHeight * .48),
-                          );
-                          final previewWidth = math.min(
-                            360.0,
-                            constraints.maxWidth,
-                          );
-                          return SizedBox(
-                            width: previewWidth,
-                            height: previewHeight,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xff384127),
-                                    Color(0xff76523b),
-                                    Color(0xffb77a4c),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Positioned(
-                                    left: 18,
-                                    top: 24,
-                                    child: Icon(Icons.local_cafe,
-                                        size: 42,
-                                        color: Colors.white
-                                            .withValues(alpha: .12)),
-                                  ),
-                                  Container(
-                                    width: math.min(280.0, previewWidth - 34),
-                                    height: previewHeight - 26,
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: Colors.white, width: 2.5),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        _ReceiptPreview(
-                                          width: math.min(
-                                              200.0, previewWidth - 70),
-                                          height: math.min(
-                                              250.0, previewHeight - 58),
-                                        ),
-                                        const Positioned(
-                                            top: 4, left: 4, child: _Corner()),
-                                        const Positioned(
-                                            top: 4,
-                                            right: 4,
-                                            child: RotatedBox(
-                                                quarterTurns: 1,
-                                                child: _Corner())),
-                                        const Positioned(
-                                            bottom: 4,
-                                            left: 4,
-                                            child: RotatedBox(
-                                                quarterTurns: 3,
-                                                child: _Corner())),
-                                        const Positioned(
-                                            bottom: 4,
-                                            right: 4,
-                                            child: RotatedBox(
-                                                quarterTurns: 2,
-                                                child: _Corner())),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'M\u{00E1}y qu\u{00E9}t ch\u{01B0}a \u{0111}\u{01B0}\u{1EE3}c b\u{1EAD}t \u{00B7} b\u{1EA3}n xem tr\u{01B0}\u{1EDB}c t\u{0129}nh',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70),
                         ),
+                      const Text(
+                        'Ngày hóa đơn chỉ có ngày, không suy diễn giờ giao dịch.',
                       ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          IconButton.filledTonal(
-                            tooltip:
-                                '\u{0110}\u{00E8}n pin (b\u{1EA3}n xem tr\u{01B0}\u{1EDB}c)',
-                            onPressed: () {},
-                            icon: const Icon(Icons.flashlight_on),
-                          ),
-                          IconButton.filledTonal(
-                            tooltip:
-                                'M\u{1EDF} k\u{1EBF}t qu\u{1EA3} minh h\u{1ECD}a',
-                            onPressed: () =>
-                                context.push('/expense-scan/result'),
-                            icon: const Icon(Icons.image),
-                          ),
-                        ],
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Bản nháp chỉ tồn tại trong màn hình này. Chưa có thao tác xác nhận chi tiêu trong phần scan.',
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          ),
+            const SizedBox(height: 12),
+            if (state.stage == ExpenseScanStage.guidance ||
+                state.stage == ExpenseScanStage.recovery)
+              FilledButton.icon(
+                onPressed: state.stage == ExpenseScanStage.submitting
+                    ? null
+                    : controller.chooseImage,
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('Chụp hoặc chọn hóa đơn'),
+              ),
+            if (state.stage == ExpenseScanStage.guidance ||
+                state.stage == ExpenseScanStage.recovery)
+              OutlinedButton.icon(
+                onPressed: controller.beginManualEntry,
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Nhập thủ công'),
+              ),
+            if (state.stage == ExpenseScanStage.review ||
+                state.stage == ExpenseScanStage.manual)
+              TextButton.icon(
+                onPressed: controller.discard,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Hủy và xóa bản nháp'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _editField(String label, String key, String value,
+          ValueChanged<String> onChanged) =>
+      Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: TextFormField(
+          key: ValueKey(key),
+          initialValue: value,
+          onChanged: onChanged,
+          decoration: InputDecoration(labelText: label),
         ),
       );
 }
 
-class _ReceiptPreview extends StatelessWidget {
-  const _ReceiptPreview({required this.width, required this.height});
-  final double width;
-  final double height;
+class _RecoveryCard extends StatelessWidget {
+  const _RecoveryCard(
+      {required this.failure,
+      required this.reasonCode,
+      required this.onRetry,
+      required this.onManual});
+  final Object? failure;
+  final String? reasonCode;
+  final VoidCallback onRetry;
+  final VoidCallback onManual;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: width,
-        height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-        decoration: BoxDecoration(
-          color: const Color(0xfffffbf4),
-          borderRadius: BorderRadius.circular(3),
-          boxShadow: const [
-            BoxShadow(
-                color: Colors.black38, blurRadius: 10, offset: Offset(0, 5)),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            const Icon(Icons.coffee, size: 20, color: Color(0xff147452)),
-            const Text('STARBUCKS',
-                style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                    fontSize: 11)),
-            const Text(
-              'H\u{00D3}A \u{0110}\u{01A0}N B\u{00C1}N H\u{00C0}NG',
-              style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700),
-            ),
-            const Text(
-              '72 Nguy\u{1EC5}n Hu\u{1EC7} \u{00B7} TP. H\u{1ED3} Ch\u{00ED} Minh',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 6),
-            ),
-            Icon(Icons.qr_code_2, size: math.min(64, height * .3)),
-            const Text('T\u{1ED5}ng ti\u{1EC1}n: 120.000 \u{0111}',
-                style: TextStyle(fontSize: 7, fontWeight: FontWeight.w700)),
-          ],
-        ),
-      );
-}
-
-class _Corner extends StatelessWidget {
-  const _Corner();
-  @override
-  Widget build(BuildContext context) => const SizedBox(
-        width: 28,
-        height: 28,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: Color(0xff04a66f), width: 4),
-              left: BorderSide(color: Color(0xff04a66f), width: 4),
-            ),
-          ),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final reasonMessage = switch (reasonCode) {
+      'PAYMENT_QR' =>
+        'Ảnh có mã QR thanh toán. Ảnh bị từ chối và không được gửi qua OCR. Hãy chọn hóa đơn khác hoặc nhập thủ công.',
+      'UNSUPPORTED_QR_FORMAT' =>
+        'Mã QR trên hóa đơn chưa được hỗ trợ hoặc không thể xác minh. Ảnh bị từ chối và không được gửi qua OCR.',
+      'UNRELATED_IMAGE' =>
+        'Ảnh không được nhận diện là hóa đơn nhà hàng/quán cà phê. Hãy chọn lại ảnh hóa đơn hoặc nhập thủ công.',
+      'UNSUPPORTED_BILL_CONTENT' =>
+        'Nội dung hóa đơn này chưa được hỗ trợ. Hãy chọn ảnh khác hoặc nhập thủ công.',
+      'UNREADABLE_BILL' =>
+        'Không đọc rõ được hóa đơn. Hãy chụp lại ảnh phẳng, đủ sáng, nét và không lóa; hoặc nhập thủ công.',
+      _ => null,
+    };
+    final message = reasonMessage ??
+        switch (failure) {
+          ScanFailureKind.premiumRequired =>
+            'Tính năng này yêu cầu gói Premium đang hoạt động.',
+          ScanFailureKind.premiumUnavailable =>
+            'Không xác minh được quyền Premium. Hãy thử lại sau.',
+          ScanFailureKind.unauthorized =>
+            'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.',
+          ScanFailureKind.invalidImage =>
+            'Ảnh không hợp lệ. Hãy chọn ảnh JPEG hoặc PNG rõ nét.',
+          ScanFailureKind.imageTooLarge =>
+            'Ảnh vượt quá dung lượng cho phép. Hãy chọn ảnh nhỏ hơn.',
+          ScanFailureKind.timeout =>
+            'Xử lý quá thời gian. Hãy thử ảnh khác hoặc nhập thủ công.',
+          ScanFailureKind.extractionUnavailable =>
+            'Chức năng chọn ảnh hoặc OCR hiện chưa khả dụng.',
+          _ =>
+            'Không thể xử lý ảnh lúc này. Ảnh và bản nháp đã bị xóa khỏi màn hình.',
+        };
+    return Card(
+      color: Theme.of(context).colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(message),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, children: [
+            TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+            TextButton(onPressed: onManual, child: const Text('Nhập thủ công')),
+          ]),
+        ]),
+      ),
+    );
+  }
 }

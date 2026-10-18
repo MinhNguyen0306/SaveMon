@@ -641,35 +641,74 @@ Allow users to attach receipt images/files to financial transactions.
 
 # 18. AI Features
 
-## F-022 — Smart Receipt Extraction
+## F-022 ? Restaurant & Cafe Receipt Extraction
 
-**Priority:** FUTURE / L1
+- Description: Premium restaurant/cafe receipt capture that creates an editable, nonfinancial expense draft.
 
-### Purpose
+| Item | Requirement |
+| --- | --- |
+| Priority | FUTURE / L1 |
+| Supported input | One still restaurant/cafe receipt image; supported JPEG/PNG limits and validation are defined by the scan contract. |
+| Access | Active paid monthly/yearly entitlement only; no trial, grace period, free scan allowance, or client-side entitlement authority. |
+| AI role | AI-assisted extraction only; output is a proposal, never financial truth. |
+| Excluded | Receipt attachment retention, automatic posting, payment execution, and unsupported QR interpretation. |
 
-Extract transaction information from receipt images.
+- Description: User journey and recovery behavior.
 
-Flow:
-
-```text
-Receipt
- ↓
-OCR / AI
- ↓
-Structured Draft
- ↓
-User Review
- ↓
-Normal Transaction Command
- ↓
-Validation
- ↓
-Persistence
+```mermaid
+flowchart LR
+ A["Capture or choose receipt image"] --> Q["Quality guidance"]
+ Q --> X["OCR extraction"]
+ X --> R["Editable review draft"]
+ R --> C["Explicit confirm"]
+ C --> N["Existing normal expense command"]
+ Q -->|"unreadable or incomplete"| T["Retake or manual entry"]
+ X -->|"unreadable"| T
+ R -->|"missing or ambiguous key field"| T
 ```
 
-AI output is never directly persisted as financial truth.
+- Description: Capture and review rules.
 
----
+| Area | Requirement |
+| --- | --- |
+| Capture guidance | Tell the user to include the full bill, keep it flat, sharp, well lit, and free of glare; allow retake or choosing another image. |
+| Extraction result | Propose merchant, paid total, currency, and bill date only when supported by visible evidence; expose missing or ambiguous key fields. |
+| Ambiguity | Never invent a missing/ambiguous paid total, currency, date, merchant, category, context, or time. The user corrects fields or uses manual entry. |
+| Review | Every proposed value is editable. No financial record is created during capture, extraction, or review. |
+| Confirmation | User explicitly confirms through the existing personal/shared expense command with its own idempotency key and ordinary validation. |
+| Date/category | Keep established date-only handling and existing personal/shared category rules unchanged. |
+| Failure | Show a recoverable outcome: retake, choose another image, or manual entry; do not silently retry or persist a partial financial record. |
+| Privacy | Source image and unconfirmed draft are volatile and deleted on cancel, leave, process close, or failed scan; no image/draft retention, backup, training, or scan-content analytics. |
+
+- Description: QR boundary rules.
+
+| Area | Requirement |
+| --- | --- |
+| Separation | Receipt OCR and QR handling are separate flows. |
+| QR safety | Unknown, payment, URL, deep-link, uncertain, or unapproved QR content is rejected and never forwarded to OCR. |
+| Availability | Bill QR remains unavailable until a versioned static bill-format allowlist and fixtures are approved. |
+
+- Description: Acceptance criteria for the approved product behavior.
+
+| ID | Given | When | Then |
+| --- | --- | --- | --- |
+| AC-022-01 | An active Premium user | Provides a clear restaurant/cafe receipt | The app presents an editable draft; no expense exists before explicit confirmation. |
+| AC-022-02 | A receipt is blurry, cropped, glared, or unreadable | Capture or extraction cannot produce usable evidence | The app offers retake/another image/manual entry and creates no expense. |
+| AC-022-03 | A key field is missing or ambiguous | The draft is displayed | The field is marked for user correction; the app does not fabricate a value. |
+| AC-022-04 | A user edits or accepts a draft | They explicitly confirm | The existing normal expense command performs all financial validation and persistence. |
+| AC-022-05 | A non-Premium or unverifiable user | Attempts receipt scanning | The server denies the scan; manual expense entry remains available. |
+| AC-022-06 | A scan is cancelled, abandoned, fails, or the process closes | Cleanup occurs | The unconfirmed image and draft are not retained. |
+| AC-022-07 | An image contains a QR candidate that is unsupported, uncertain, payment-related, a URL, or a deep link | It is examined | The whole input is rejected and OCR does not run. |
+
+- Description: External decisions retained outside this approved product scope.
+
+| Decision | Status | Production impact |
+| --- | --- | --- |
+| OCR provider, processing region, no-retention/no-training terms, transport, and privacy/cross-border terms | OPEN | External receipt OCR remains disabled. |
+| Authoritative paid-entitlement source and server integration | OPEN | Production receipt scanning remains disabled. |
+| Per-scan cost ceiling, operator budget, reservation, and breaker | OPEN | Paid OCR dispatch remains disabled. |
+| Bill QR markets, exact versioned formats, and parser fixtures | OPEN | Bill QR remains disabled. |
+| Ingress no-durable-buffer evidence and QR residual-risk approval | OPEN | Relevant production scan path remains disabled. |
 
 ## F-023 — Natural Language Transaction Entry
 

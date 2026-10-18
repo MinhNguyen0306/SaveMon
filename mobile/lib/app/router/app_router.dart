@@ -9,8 +9,10 @@ import '../../features/identity/presentation/profile_page.dart';
 import '../../features/identity/presentation/registration_page.dart';
 import '../../features/personal_finance/presentation/personal_finance_page.dart';
 import '../../features/personal_finance/presentation/transaction_detail_page.dart';
-import '../../features/qr_bill_scan/presentation/expense_history_preview_page.dart';
+import '../../features/qr_bill_scan/presentation/expense_history_preview_page.dart'
+    show ExpenseHistoryPage;
 import '../../features/qr_bill_scan/presentation/expense_scan_page.dart';
+import '../../features/qr_bill_scan/presentation/scan_result_page.dart';
 import '../../features/shared_finance/presentation/shared_expense_detail_page.dart';
 import '../../features/shared_finance/presentation/shared_vault_page.dart';
 
