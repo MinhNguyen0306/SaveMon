@@ -4,7 +4,7 @@
 
 | Item | Value |
 | --- | --- |
-| Version / updated | 3.3.0 / 2026-10-18 |
+| Version / updated | 3.4.0 / 2026-10-18 |
 | Scope | F-022 / AC-022-01–07 restaurant/cafe receipt capture and review; not offline narrative F-023/033/034 |
 | Status | Bounded implementation design; production integrations remain disabled |
 | Product | [FEATURES.md](../FEATURES.md), F-022 |
@@ -242,7 +242,7 @@ flowchart TD
 
 | Order | Owner | Deliverable / verification |
 | --- | --- | --- |
-| P1 | backend-developer | Focused personal/shared DTO-to-existing-core adapters and required optional shared command inputs; standalone same-path MVC tests using fake cores; preserve current runtime registration until qualified |
+| P1 | backend-developer | Unregistered DTO/validation + finance-owned expense-port tests only; tracked-only dependency closure per correction below; no JDBC persistence or new Spring bean registration |
 | P2 | devops | Read-only schema/Flyway/client inventory for explicitly identified target; report actual deployment and backups/restore evidence, no migration/application switch |
 | P3 | backend-developer | Real-core MVC + disposable PostgreSQL tests; required read projection mappings and key/replay guard; writer-closure inventory naming compatible/incompatible paths; no legacy-data repair |
 | P4 | qa-qc | Independent contract+DB checks: exact VND/USD, omitted INSTANT, DATE_ONLY yesterday/today-before-noon/future, optional category, explicit funding/splits/derivation/If-Match, authorization, timeout replay, duplicate-key concurrency, terminal rollback, migration-ineligible rejection and sibling-writer interference |
@@ -252,3 +252,52 @@ flowchart TD
 | Target activation | Orchestrator + owner/security/ops as applicable | Require schema/data/replay/writer/client evidence and explicit target selection; production migration/deployment requires its normal approval; after first new write use forward repair, not legacy-writer rollback |
 
 - Current implementation needs no new financial/product decision; production decisions arise only from actual incompatible clients, unprovable legacy history or deployment/migration impact, while F-022 external gates stay open.
+
+- P1 correction after review of 533cba0 supersedes its implementation scope, not the final ordinary-finance architecture.
+
+| Inventory / rule | Established boundary |
+| --- | --- |
+| Tracked, per DevOps inventory | PersonalPosting, SharedLedgerCommands, PersonalExpensePostingBridge, SharedExpensePostingBridge, PersonalFinanceOperations and SharedFinanceOperations |
+| Untracked, per DevOps inventory | SharedOperationLedger, CommandJournal, SharedLedgerHistory and SplitPreviewService; workspace presence grants no dependency/release authority |
+| Missing closure | PersonalPosting persistence adapter is not part of the pushed P1 implementation; shared JDBC store depends on unpublished cross-module/journal/history/split types |
+| Repair | New forward commit narrows newly introduced P1 code; no amend/reset/history rewrite or opportunistic inclusion of untracked finance implementations |
+| Runtime | Existing legacy controllers/Operations wiring is unchanged; no accepting scan endpoint, new component bean, partial finance-route switch or fake production binding |
+
+- Minimal P1 contracts are standalone ordinary-finance validation seams, not persistence completion.
+
+| Component | Immediate repair scope |
+| --- | --- |
+| PersonalPosting | Plain constructor-injected class, not @Service; retain its tracked Command/Item/NarrativeSource/Receipt and nested Store seam; absent real Store must not create an application-context startup requirement |
+| SharedLedgerCommands | Plain expense-only validator/coordinator, not @Service; nested Store exposes only recordExpense for this slice; own nested Receipt(status, headers, body), no CommandJournal return type; inspect tracked callers before removing newly introduced unrelated reverse/archive surface |
+| Shared derivation carriers | Define one typed approved-shape carrier set at this finance-owned expense boundary: algorithmVersion/mode/input, participant/line/request fields matching existing OpenAPI; not a replacement SplitPreviewService, not a raw Map, no duplicate algorithm or new wire field |
+| Shared bridge | Map ExpenseCreate funding/splits/optional derivation/If-Match to the narrow tracked expense boundary; no imports from untracked SplitPreviewService/CommandJournal or JDBC/history/cross-module implementations |
+| Personal bridge | Retain mapped tracked personal command seam; no real database adapter requirement; no scan-owned mutation API |
+| Dependency removal | Remove/defer task-introduced JdbcSharedLedgerStore from the tracked P1 source set in the forward fix; do not delete/edit unrelated untracked implementations or publish them as incidental fixes |
+| Validation | Check null collection elements before List.copyOf/sorting/dereferencing; malformed input becomes canonical deterministic error, never NPE; preserve exact decimal/date/category/funding semantics and BA-reconciled error code/status mapping |
+| P1 claims | Typed derivation/expected version reach fake port unchanged; locked derivation recomputation, membership/authorization, replay, database atomicity and resource eligibility are NOT implemented or certified by fake tests |
+
+- Explicit dependency tasks publish only complete reviewed units before persistence integration.
+
+| Sequence / task | Owner | Required scoped deliverable | Gate |
+| --- | --- | --- | --- |
+| D0 P1 forward repair | backend-developer | Narrow pure contracts/validators/bridges and fake-backed same-path tests; remove task-introduced concrete-store/untracked dependencies and automatic bean registration | Existing tracked API/types only; no runtime switch |
+| D0 verification | qa-qc + devops, separately routed | QA targeted tests/validation/error envelope; DevOps tracked-source manifest and tracked-only compile/test reproduction, then scoped new commit/push | No test classpath source from untracked workspace; no empty same-name stubs or permissive test app beans |
+| D0 review | reviewer | Review new pushed fix against failed 533cba0 and approved scope | Self-contained source closure; report residual baseline failures separately |
+| D1 personal persistence closure | backend-developer | Explicit manifest for JdbcPersonalPostingStore, eligibility and every direct/transitive dependency, relevant migrations and focused tests; classify existing tracked versus separately adopted source before edits | Separate task, no incidental shared/narrative feature import; DB identity/credentials/evidence available for required integration verification |
+| D2 shared ledger/journal closure | backend-developer | Explicit SharedOperationLedger application-port contract + required owned adapter/evidence/history/journal closure and focused tests; preserve modular boundaries | Separate approved manifest/verification; tracked dependencies before consumers; no finance route switch |
+| D3 split calculator closure | backend-developer | Publish approved pure SplitPreviewService implementation/contract adapters and focused exact-arithmetic tests as its own scoped unit | Reuse current versioned algorithm; no user funding/split-choice decision |
+| D4 shared persistence integration | backend-developer | Integrate existing shared store against published D2/D3 and canonical P1 carriers; recompute derivation under lock; persist effects/receipt/derivation atomically | Required migration/DB evidence; full dependency manifest, no workspace-only types |
+| D5 P3 continuation | Orchestrator routes specialists | Resume real-core MVC/DB, read/replay/writer/client closure and later mobile integration only after required units pass independent QA and pushed review | Production gates and activation approvals unchanged |
+
+- Each pushed unit must reproduce from tracked source without assuming a clean shared workspace.
+
+| Check | Required evidence |
+| --- | --- |
+| Dependency manifest | DevOps records exact tracked/new task paths, imports, service-loading/resources, migrations and test-source closure; include only assigned dependencies, never an entire finance directory |
+| Isolation | Verify from a tracked-tree snapshot using runtime-supported DevOps tooling; no feature branch/worktree, no changing developer source checkout, no discarding unrelated work |
+| Compile | Compile main source and required focused tests against tracked files only; exclude no missing production dependency by replacing it with a test stub; report unrelated baseline testCompile blockers precisely |
+| Runtime boundary | Pure P1 classes have no @Service/@Repository/@Component registration; application startup does not demand unpublished stores; original controller routes remain unchanged |
+| Negative cases | Null item/split and malformed nested structures return approved errors; currency/amount/date/split failures match canonical code/status/envelope; unknown/duplicate fields reject |
+| Commit safety | New forward logical commit only after required verification; dependent implementation is not committed ahead of its source prerequisites; Git/review failure stops the affected commit flow |
+
+- No new human product decision is needed to narrow P1; unresolved DB credentials/evidence and later dependency qualification remain explicit technical gates, not permission to import unrelated code.

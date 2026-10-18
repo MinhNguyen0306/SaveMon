@@ -8,10 +8,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
 
 /** Isolated, not-yet-HTTP-wired ordinary personal posting command. */
-@Service
 public final class PersonalPosting {
     private static final BigDecimal MAX = new BigDecimal("999999999999999.9999");
     private final Store store;
@@ -34,6 +32,8 @@ public final class PersonalPosting {
         if (precision.equals("DATE_ONLY") && LocalDate.ofInstant(command.transactionDate(), ZoneOffset.UTC)
                 .isAfter(LocalDate.now(ZoneOffset.UTC)))
             throw new BusinessApiException("FUTURE_DATE_NOT_ALLOWED", "Future date is not allowed.", HttpStatus.UNPROCESSABLE_ENTITY);
+        if (command.items() != null && command.items().stream().anyMatch(item ->
+                item == null || item.categoryId() == null)) bad("Category is required.");
         List<Item> items = command.items() == null ? List.of() : List.copyOf(command.items());
         BigDecimal sum = BigDecimal.ZERO;
         for (Item item : items) {
@@ -42,7 +42,9 @@ public final class PersonalPosting {
             if (item.description() != null && item.description().length() > 500) bad("Item description is too long.");
             sum = sum.add(item.amount());
         }
-        if (!items.isEmpty() && sum.compareTo(command.amount()) != 0) bad("Item sum must equal transaction amount.");
+        if (!items.isEmpty() && sum.compareTo(command.amount()) != 0)
+            throw new BusinessApiException("TRANSACTION_ITEM_TOTAL_MISMATCH",
+                    "Item sum must equal transaction amount.", HttpStatus.UNPROCESSABLE_ENTITY);
         Instant effectiveAt = precision.equals("DATE_ONLY")
                 ? LocalDate.ofInstant(command.transactionDate(), ZoneOffset.UTC).atTime(12, 0).toInstant(ZoneOffset.UTC)
                 : command.transactionDate();

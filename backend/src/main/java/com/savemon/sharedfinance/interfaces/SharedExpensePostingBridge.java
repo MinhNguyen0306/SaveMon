@@ -1,9 +1,7 @@
 package com.savemon.sharedfinance.interfaces;
 
 import com.savemon.shared.interfaces.exception.BusinessApiException;
-import com.savemon.sharedfinance.application.CommandJournal;
 import com.savemon.sharedfinance.application.SharedLedgerCommands;
-import com.savemon.sharedfinance.application.SplitPreviewService;
 import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
@@ -17,7 +15,7 @@ public final class SharedExpensePostingBridge {
 
     public SharedExpensePostingBridge(SharedLedgerCommands commands) { this.commands = commands; }
 
-    public CommandJournal.Receipt record(UUID actor, UUID vaultId, UUID key,
+    public SharedLedgerCommands.Receipt record(UUID actor, UUID vaultId, UUID key,
                                          String ifMatch, ExpenseCreate request) {
         if (request == null)
             throw new BusinessApiException("VALIDATION_ERROR", "Expense request is required.", HttpStatus.BAD_REQUEST);
@@ -46,7 +44,7 @@ public final class SharedExpensePostingBridge {
 
     public record ExpenseCreate(BigDecimal amount, String currency, String description,
                                 Instant expenseDate, String datePrecision, Funding funding,
-                                List<Split> splits, SplitPreviewService.Derivation splitDerivation) { }
+                                List<Split> splits, SharedLedgerCommands.Derivation splitDerivation) { }
     public record Funding(String type, UUID payerMemberId, UUID sourceAccountId) { }
     public record Split(UUID memberId, BigDecimal amount) { }
 }

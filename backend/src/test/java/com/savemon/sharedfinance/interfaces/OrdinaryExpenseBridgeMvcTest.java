@@ -4,15 +4,10 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.savemon.personalfinance.application.PersonalFinanceOperations;
 import com.savemon.personalfinance.application.PersonalPosting;
 import com.savemon.personalfinance.interfaces.PersonalExpensePostingBridge;
-import com.savemon.personalfinance.interfaces.PersonalFinanceController;
 import com.savemon.shared.interfaces.exception.BusinessApiException;
-import com.savemon.sharedfinance.application.CommandJournal;
-import com.savemon.sharedfinance.application.SharedFinanceOperations;
 import com.savemon.sharedfinance.application.SharedLedgerCommands;
-import com.savemon.sharedfinance.application.SplitPreviewService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -88,11 +83,11 @@ class OrdinaryExpenseBridgeMvcTest {
         AtomicReference<SharedLedgerCommands.Expense> seen = new AtomicReference<>();
         AtomicReference<UUID> seenKey = new AtomicReference<>();
         SharedLedgerCommands.Store store = new NoopSharedStore() {
-            @Override public CommandJournal.Receipt recordExpense(UUID actor, UUID vault, UUID key,
+            @Override public SharedLedgerCommands.Receipt recordExpense(UUID actor, UUID vault, UUID key,
                                                                     SharedLedgerCommands.Expense input) {
                 assertThat(actor).isEqualTo(ACTOR);
                 seen.set(input); seenKey.set(key);
-                return new CommandJournal.Receipt(201, Map.of("ETag", "\"6\""),
+                return new SharedLedgerCommands.Receipt(201, Map.of("ETag", "\"6\""),
                         "{\"id\":\"shared-receipt\"}");
             }
         };
@@ -122,7 +117,7 @@ class OrdinaryExpenseBridgeMvcTest {
         assertThat(seen.get().payerMemberId()).isEqualTo(payer);
         assertThat(seen.get().sourceAccountId()).isEqualTo(account);
         assertThat(seen.get().splits()).hasSize(2);
-        assertThat(seen.get().splitDerivation().algorithmVersion()).isEqualTo(SplitPreviewService.VERSION);
+        assertThat(seen.get().splitDerivation().algorithmVersion()).isEqualTo("largest-remainder-v1");
         assertThat(seen.get().expectedVaultVersion()).isEqualTo(5L);
     }
 
@@ -144,10 +139,10 @@ class OrdinaryExpenseBridgeMvcTest {
     @Test void sharedOmittedPrecisionAndIfMatchStayInstantAndUnversioned() throws Exception {
         AtomicReference<SharedLedgerCommands.Expense> seen = new AtomicReference<>();
         SharedLedgerCommands.Store store = new NoopSharedStore() {
-            @Override public CommandJournal.Receipt recordExpense(UUID actor, UUID vault, UUID key,
+            @Override public SharedLedgerCommands.Receipt recordExpense(UUID actor, UUID vault, UUID key,
                                                                     SharedLedgerCommands.Expense input) {
                 seen.set(input);
-                return new CommandJournal.Receipt(201, Map.of(), "{}");
+                return new SharedLedgerCommands.Receipt(201, Map.of(), "{}");
             }
         };
         var mvc = MockMvcBuilders.standaloneSetup(new TestController(
@@ -174,10 +169,8 @@ class OrdinaryExpenseBridgeMvcTest {
     @Test void bridgesDoNotReplaceRegisteredLegacyRuntimeMappings() throws Exception {
         assertThat(PersonalExpensePostingBridge.class.isAnnotationPresent(RestController.class)).isFalse();
         assertThat(SharedExpensePostingBridge.class.isAnnotationPresent(RestController.class)).isFalse();
-        assertThat(PersonalFinanceController.class.getMethod("expense", String.class,
-                PersonalFinanceOperations.FinancialRequest.class)).isNotNull();
-        assertThat(SharedFinanceController.class.getMethod("createExpense", UUID.class, String.class,
-                SharedFinanceOperations.ExpenseRequest.class)).isNotNull();
+        assertThat(PersonalPosting.class.isAnnotationPresent(org.springframework.stereotype.Service.class)).isFalse();
+        assertThat(SharedLedgerCommands.class.isAnnotationPresent(org.springframework.stereotype.Service.class)).isFalse();
     }
 
     @RestController
@@ -217,20 +210,9 @@ class OrdinaryExpenseBridgeMvcTest {
     }
 
     private static class NoopSharedStore implements SharedLedgerCommands.Store {
-        @Override public CommandJournal.Receipt recordExpense(UUID actor, UUID vault, UUID key,
+        @Override public SharedLedgerCommands.Receipt recordExpense(UUID actor, UUID vault, UUID key,
                                                                 SharedLedgerCommands.Expense input) {
-            return new CommandJournal.Receipt(201, Map.of(), "{}");
-        }
-        @Override public CommandJournal.Receipt reverseContribution(UUID actor, UUID vault, UUID child,
-                                                                     UUID key, String reason) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public CommandJournal.Receipt reverseExpense(UUID actor, UUID vault, UUID child,
-                                                                UUID key, String reason) {
-            throw new UnsupportedOperationException();
-        }
-        @Override public CommandJournal.Receipt archiveVault(UUID actor, UUID vault, UUID key) {
-            throw new UnsupportedOperationException();
+            return new SharedLedgerCommands.Receipt(201, Map.of(), "{}");
         }
     }
 }
