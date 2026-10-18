@@ -88,6 +88,8 @@ class _PersonalFinancePageState extends ConsumerState<PersonalFinancePage> {
     if (currency.isNotEmpty) {
       ref.invalidate(personalSummaryProvider(currency));
       ref.invalidate(personalCalendarProvider(currency));
+      ref.invalidate(
+          personalMonthSummaryProvider(_currentMonthRange(currency)));
     }
   }
 
@@ -116,8 +118,12 @@ class _PersonalFinancePageState extends ConsumerState<PersonalFinancePage> {
                 ? null
                 : ref.watch(
                     personalMonthSummaryProvider(_currentMonthRange(currency))),
-            onCurrencyChanged: (value) =>
-                ref.read(personalCurrencyProvider.notifier).state = value,
+            onCurrencyChanged: (value) {
+              final normalized = value.trim();
+              if (normalized.isNotEmpty) {
+                ref.read(personalCurrencyProvider.notifier).state = normalized;
+              }
+            },
             onPageChanged: (page) =>
                 ref.read(personalTransactionPageProvider.notifier).state = page,
             onRefresh: _refresh,
@@ -342,12 +348,39 @@ enum _TransactionFilter { all, expense, income }
 
 class _TransactionLandingState extends State<_TransactionLanding> {
   final _search = TextEditingController();
+  final _currency = TextEditingController();
   _TransactionFilter _filter = _TransactionFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    _currency.text = widget.currency;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TransactionLanding oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currency != widget.currency &&
+        _currency.text.trim() == oldWidget.currency) {
+      _currency.text = widget.currency;
+    }
+  }
 
   @override
   void dispose() {
     _search.dispose();
+    _currency.dispose();
     super.dispose();
+  }
+
+  void _applyCurrency() {
+    final normalized = _currency.text.trim();
+    if (normalized.isEmpty) return;
+    _currency.value = TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+    widget.onCurrencyChanged(normalized);
   }
 
   @override
@@ -437,15 +470,6 @@ class _TransactionLandingState extends State<_TransactionLanding> {
                     tx.items.any((item) =>
                         item.categoryName.toLowerCase().contains(query));
               }).toList();
-              if (matching.isEmpty) {
-                return Padding(
-                    padding: const EdgeInsets.all(22),
-                    child: Text(
-                        history.items.isEmpty
-                            ? 'Chưa có giao dịch.'
-                            : 'Không tìm thấy giao dịch phù hợp.',
-                        textAlign: TextAlign.center));
-              }
               final grouped = <String, List<PersonalTransaction>>{};
               for (final tx in matching) {
                 grouped
@@ -455,6 +479,14 @@ class _TransactionLandingState extends State<_TransactionLanding> {
               return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (matching.isEmpty)
+                      Padding(
+                          padding: const EdgeInsets.all(22),
+                          child: Text(
+                              history.items.isEmpty
+                                  ? 'Chưa có giao dịch.'
+                                  : 'Không tìm thấy giao dịch phù hợp.',
+                              textAlign: TextAlign.center)),
                     for (final entry in grouped.entries) ...[
                       Padding(
                           padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
@@ -526,14 +558,20 @@ class _TransactionLandingState extends State<_TransactionLanding> {
                           color: Color(0xff142c45)))),
               const Icon(Icons.keyboard_arrow_down, color: Color(0xff576b87))
             ]),
-            if (widget.currency.isEmpty) ...[
-              const SizedBox(height: 12),
-              TextField(
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(
-                      labelText: 'Đơn vị tiền tệ', hintText: 'VND'),
-                  onSubmitted: widget.onCurrencyChanged),
-            ] else ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                  child: TextField(
+                      controller: _currency,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(
+                          labelText: 'Đơn vị tiền tệ', hintText: 'VND'),
+                      onSubmitted: (_) => _applyCurrency())),
+              const SizedBox(width: 8),
+              FilledButton(
+                  onPressed: _applyCurrency, child: const Text('Áp dụng')),
+            ]),
+            if (widget.currency.isNotEmpty) ...[
               const SizedBox(height: 14),
               widget.monthSummary!.when(
                 loading: () => const SizedBox(
@@ -660,12 +698,21 @@ String _transactionDay(String value) {
 }
 
 String _groupAmount(num amount) {
-  final raw = amount.round().toString();
+  final raw = amount.toString();
+  final decimalIndex = raw.indexOf('.');
+  final integer = decimalIndex < 0 ? raw : raw.substring(0, decimalIndex);
+  final fraction = decimalIndex < 0
+      ? ''
+      : raw.substring(decimalIndex + 1).replaceFirst(RegExp(r'0+$'), '');
+  final negative = integer.startsWith('-');
+  final digits = negative ? integer.substring(1) : integer;
   final out = StringBuffer();
-  for (var i = 0; i < raw.length; i++) {
-    if (i > 0 && (raw.length - i) % 3 == 0) out.write('.');
-    out.write(raw[i]);
+  if (negative) out.write('-');
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) out.write('.');
+    out.write(digits[i]);
   }
+  if (fraction.isNotEmpty) out.write('.$fraction');
   return out.toString();
 }
 
