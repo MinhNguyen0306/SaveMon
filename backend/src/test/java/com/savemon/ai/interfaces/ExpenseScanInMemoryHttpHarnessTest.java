@@ -27,7 +27,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +45,10 @@ class ExpenseScanInMemoryHttpHarnessTest {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private final byte[] png = png();
 
-    @AfterEach void close() { workers.shutdownNow(); }
+    @AfterEach void close() throws InterruptedException {
+        workers.shutdownNow();
+        assertThat(workers.awaitTermination(2, TimeUnit.SECONDS)).isTrue();
+    }
 
     @Test void exactPathHeaderSingleImageAndDraftShape() throws Exception {
         AtomicInteger reads = new AtomicInteger();
@@ -67,13 +73,61 @@ class ExpenseScanInMemoryHttpHarnessTest {
         assertThat(reads).hasValue(0);
 
         UUID subject = UUID.randomUUID();
-        request = request(subject, "not-a-uuid", List.of(part("image", "image/png", png, reads)));
+        request = request(subject, UUID.randomUUID().toString(),
+                List.of(part("image", "image/png", png, reads)));
         assertError(harness(ignored -> new PremiumEntitlementQuery.Entitlement(
                 PremiumEntitlementQuery.Status.INACTIVE, PremiumEntitlementQuery.BillingInterval.MONTHLY,
                 clock.instant().plusSeconds(3600)), new Store()).handle(request), 403, "PREMIUM_REQUIRED");
         assertError(harness(ignored -> { throw new IllegalStateException(); }, new Store()).handle(request),
                 503, "PREMIUM_ENTITLEMENT_UNAVAILABLE");
         assertThat(reads).hasValue(0);
+    }
+
+    @Test void harnessDoesNotRequeryEntitlementAfterAdmittedBodyRead() throws Exception {
+        AtomicInteger queries = new AtomicInteger();
+        AtomicBoolean active = new AtomicBoolean(true);
+        var harness = harness(ignored -> {
+            queries.incrementAndGet();
+            return new PremiumEntitlementQuery.Entitlement(
+                    active.get() ? PremiumEntitlementQuery.Status.ACTIVE : PremiumEntitlementQuery.Status.INACTIVE,
+                    PremiumEntitlementQuery.BillingInterval.MONTHLY, clock.instant().plusSeconds(3600));
+        }, new Store());
+        AtomicInteger reads = new AtomicInteger();
+        Part part = new Part("image", "image/png", png.length, () -> {
+            reads.incrementAndGet(); active.set(false); return png;
+        });
+        var result = harness.handle(request(UUID.randomUUID(), UUID.randomUUID().toString(), List.of(part)));
+        assertThat(result.status()).isEqualTo(200);
+        assertThat(queries).hasValue(1);
+        assertThat(reads).hasValue(1);
+    }
+
+    @Test void harnessCapacityDenialNeverInvokesThirdMultipartSupplier() throws Exception {
+        var harness = harness(paid(), new Store());
+        CountDownLatch entered = new CountDownLatch(2);
+        CountDownLatch release = new CountDownLatch(1);
+        Part slowPart = new Part("image", "image/png", png.length, () -> {
+            entered.countDown();
+            try { release.await(); }
+            catch (InterruptedException exception) { Thread.currentThread().interrupt(); }
+            return png;
+        });
+        ExecutorService callers = Executors.newFixedThreadPool(2);
+        try {
+            var first = callers.submit(() -> harness.handle(request(UUID.randomUUID(),
+                    UUID.randomUUID().toString(), List.of(slowPart))));
+            var second = callers.submit(() -> harness.handle(request(UUID.randomUUID(),
+                    UUID.randomUUID().toString(), List.of(slowPart))));
+            assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
+            AtomicInteger thirdReads = new AtomicInteger();
+            var denied = harness.handle(request(UUID.randomUUID(), UUID.randomUUID().toString(),
+                    List.of(part("image", "image/png", png, thirdReads))));
+            assertError(denied, 503, "SCAN_CAPACITY_UNAVAILABLE");
+            assertThat(thirdReads).hasValue(0);
+            release.countDown();
+            assertThat(first.get(2, TimeUnit.SECONDS).status()).isEqualTo(200);
+            assertThat(second.get(2, TimeUnit.SECONDS).status()).isEqualTo(200);
+        } finally { release.countDown(); callers.shutdownNow(); }
     }
 
     @Test void rejectsNonExactRouteMethodPartsAndHeaderBeforeBodyRead() throws Exception {
@@ -149,6 +203,15 @@ class ExpenseScanInMemoryHttpHarnessTest {
         assertThat(result.body()).doesNotContain("draft");
     }
 
+    @Test void unexpectedAdmittedBodyReadFailureMapsToCanonicalInternalError() throws Exception {
+        var harness = harness(paid(), new Store());
+        Part failing = new Part("image", "image/png", png.length,
+                () -> { throw new IllegalStateException("private scanner data"); });
+        var result = harness.handle(request(UUID.randomUUID(), UUID.randomUUID().toString(), List.of(failing)));
+        assertError(result, 500, "INTERNAL_ERROR");
+        assertThat(result.body()).doesNotContain("private scanner data");
+    }
+
     private PremiumEntitlementQuery paid() {
         return ignored -> new PremiumEntitlementQuery.Entitlement(
                 PremiumEntitlementQuery.Status.ACTIVE, PremiumEntitlementQuery.BillingInterval.MONTHLY,
@@ -167,7 +230,7 @@ class ExpenseScanInMemoryHttpHarnessTest {
                 ignored -> ScanQrDetector.Verdict.NO_QR,
                 new ExpenseScanIdempotency(store, clock), extractor,
                 new ScanOutputValidator(), () -> {}, workers);
-        return new Harness(entitlement, coordinator);
+        return new Harness(coordinator);
     }
 
     private Request request(UUID subject, String key, List<Part> parts) {
@@ -203,42 +266,34 @@ class ExpenseScanInMemoryHttpHarnessTest {
     private record Result(int status, String body, Map<String, String> headers) { }
 
     private final class Harness {
-        private final ExpenseScanEntitlementGate entitlement;
         private final ExpenseScanCoordinator coordinator;
         private String lastBody;
         private Map<String, String> lastHeaders;
-        private Harness(ExpenseScanEntitlementGate entitlement, ExpenseScanCoordinator coordinator) {
-            this.entitlement = entitlement; this.coordinator = coordinator;
+        private Harness(ExpenseScanCoordinator coordinator) {
+            this.coordinator = coordinator;
         }
         private Result handle(Request request) throws Exception {
             if (!"POST".equals(request.method()) || !PATH.equals(request.path()))
                 return error(503, "SCAN_CAPACITY_UNAVAILABLE", Map.of());
             if (request.subject() == null) return error(401, "AUTHENTICATION_FAILED", Map.of());
-            try { entitlement.requireActivePaidEntitlement(request.subject()); }
-            catch (ExpenseScanEntitlementGate.PremiumRequiredException exception) {
-                return error(403, "PREMIUM_REQUIRED", Map.of());
-            } catch (ExpenseScanEntitlementGate.EntitlementUnavailableException exception) {
-                return error(503, "PREMIUM_ENTITLEMENT_UNAVAILABLE", Map.of());
-            }
             UUID key;
             try { key = ExpenseScanRequest.fromIdempotencyHeader(request.key()).idempotencyKey(); }
             catch (IllegalArgumentException exception) { return error(400, "VALIDATION_ERROR", Map.of()); }
-            if (!"multipart/form-data".equals(request.contentType())
-                    || request.parts().size() != 1 || !"image".equals(request.parts().get(0).name()))
-                return error(400, "VALIDATION_ERROR", Map.of());
-            Part part = request.parts().get(0);
-            if (request.requestBytes() > MAX_REQUEST_BYTES || part.size() > ScanImageValidator.MAX_FILE_BYTES)
-                return error(413, "SCAN_IMAGE_TOO_LARGE", Map.of());
-            if (!"image/png".equals(part.mediaType()) && !"image/jpeg".equals(part.mediaType()))
-                return error(415, "SCAN_UNSUPPORTED_MEDIA_TYPE", Map.of());
             try {
-                ExpenseScanResponse response = coordinator.scan(request.subject(), key, part.body().get(),
-                        part.mediaType(), () -> false);
+                ExpenseScanResponse response = coordinator.scan(request.subject(), key,
+                        () -> parseAdmittedInput(request),
+                        () -> false);
                 return result(200, json.writeValueAsString(response), Map.of());
+            } catch (ExpenseScanEntitlementGate.PremiumRequiredException exception) {
+                return error(403, "PREMIUM_REQUIRED", Map.of());
+            } catch (ExpenseScanEntitlementGate.EntitlementUnavailableException exception) {
+                return error(503, "PREMIUM_ENTITLEMENT_UNAVAILABLE", Map.of());
             } catch (ScanImageValidator.InvalidImageException exception) {
                 return error(400, "VALIDATION_ERROR", Map.of());
             } catch (ScanImageValidator.ImageTooLargeException exception) {
                 return error(413, "SCAN_IMAGE_TOO_LARGE", Map.of());
+            } catch (UnsupportedMediaException exception) {
+                return error(415, "SCAN_UNSUPPORTED_MEDIA_TYPE", Map.of());
             } catch (ExpenseScanCoordinator.ClaimException exception) {
                 return switch (exception.result()) {
                     case IN_PROGRESS -> error(409, "IDEMPOTENCY_IN_PROGRESS", Map.of("Retry-After", "2"));
@@ -252,7 +307,20 @@ class ExpenseScanInMemoryHttpHarnessTest {
                     case TIMEOUT -> error(504, "BILL_EXTRACTION_TIMEOUT", Map.of());
                     case EXTRACTION, TERMINAL -> error(503, "BILL_EXTRACTION_UNAVAILABLE", Map.of());
                 };
+            } catch (RuntimeException exception) {
+                return error(500, "INTERNAL_ERROR", Map.of());
             }
+        }
+        private ExpenseScanCoordinator.SourceImage parseAdmittedInput(Request request) {
+            if (!"multipart/form-data".equals(request.contentType())
+                    || request.parts().size() != 1 || !"image".equals(request.parts().get(0).name()))
+                throw new ScanImageValidator.InvalidImageException();
+            Part part = request.parts().get(0);
+            if (request.requestBytes() > MAX_REQUEST_BYTES || part.size() > ScanImageValidator.MAX_FILE_BYTES)
+                throw new ScanImageValidator.ImageTooLargeException();
+            if (!"image/png".equals(part.mediaType()) && !"image/jpeg".equals(part.mediaType()))
+                throw new UnsupportedMediaException();
+            return new ExpenseScanCoordinator.SourceImage(part.body().get(), part.mediaType());
         }
         private Result error(int status, String code, Map<String, String> headers) throws Exception {
             return result(status, json.writeValueAsString(
@@ -263,6 +331,8 @@ class ExpenseScanInMemoryHttpHarnessTest {
             return new Result(status, body, headers);
         }
     }
+
+    private static final class UnsupportedMediaException extends RuntimeException { }
 
     private static final class Store implements ExpenseScanIdempotencyStore {
         private final java.util.Map<UUID, String> hashes = new java.util.HashMap<>();
